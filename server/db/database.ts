@@ -164,3 +164,18 @@ export function initDatabase() {
 
   console.log('Database initialized successfully at', dbPath);
 }
+
+/**
+ * Ensures a user record exists in the users table to prevent FOREIGN KEY errors
+ */
+export function ensureUserExists(userId: string, name?: string, email?: string): void {
+  if (!userId) return;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) {
+    const defaultName = name || (userId.startsWith('usr_') ? userId.replace('usr_', '').replace(/_/g, ' ') : 'Learner');
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, name, email, level, streak, last_active_date)
+      VALUES (?, ?, ?, 'Intermediate', 1, DATE('now'))
+    `).run(userId, defaultName, email || null);
+  }
+}

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
+import { db, ensureUserExists } from '../db/database.js';
 import {
   generateConversationStarter,
   analyzeUserResponse,
@@ -20,6 +20,7 @@ const router = Router();
 router.post('/start', async (req, res) => {
   try {
     const userId = req.body.userId || 'usr_default';
+    ensureUserExists(userId);
     const difficulty = req.body.difficulty || 'Intermediate';
     const topic = req.body.topic || 'Daily Experiences & Personal Goals';
 
@@ -502,6 +503,8 @@ router.post('/hands-free/analyze', async (req, res) => {
       durationSeconds = 60,
       userId = 'usr_default',
     } = req.body;
+
+    ensureUserExists(userId);
 
     const diagnostic = await analyzeEntireHandsFreeSession({
       topic,

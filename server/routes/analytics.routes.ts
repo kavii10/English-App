@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
+import { db, ensureUserExists } from '../db/database.js';
 import { getUserWeaknessProfile } from '../services/weakness.js';
 
 const router = Router();
@@ -11,6 +11,7 @@ const router = Router();
 router.get('/overview', (req, res) => {
   try {
     const userId = (req.query.userId as string) || 'usr_default';
+    ensureUserExists(userId);
 
     const stats = db.prepare(`
       SELECT 

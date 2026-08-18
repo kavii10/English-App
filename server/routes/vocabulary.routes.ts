@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
+import { db, ensureUserExists } from '../db/database.js';
 import { calculateNextReview, SRSGrade } from '../services/srs.js';
 import { evaluateFlashcardSentence, generateMoreVocabulary } from '../services/gemini.js';
 import { syncFlashcardToSupabase } from '../db/supabase.js';
@@ -13,6 +13,7 @@ const router = Router();
 router.get('/today', (req, res) => {
   try {
     const userId = (req.query.userId as string) || 'usr_default';
+    ensureUserExists(userId);
     
     // Get 5 words for today (rotating based on day of year)
     const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));

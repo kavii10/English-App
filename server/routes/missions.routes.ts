@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
+import { db, ensureUserExists } from '../db/database.js';
 import { getUserWeaknessProfile } from '../services/weakness.js';
 
 const router = Router();
@@ -11,6 +11,7 @@ const router = Router();
 router.get('/today', (req, res) => {
   try {
     const userId = (req.query.userId as string) || 'usr_default';
+    ensureUserExists(userId);
     const todayStr = new Date().toISOString().split('T')[0];
 
     let mission = db.prepare('SELECT * FROM daily_missions WHERE user_id = ? AND mission_date = ?').get(userId, todayStr) as any;
