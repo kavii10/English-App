@@ -27,7 +27,18 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
+  const interimRef = useRef<string>('');
+
   const isSupported = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    interimRef.current = interimTranscript;
+  }, [interimTranscript]);
 
   useEffect(() => {
     if (!isSupported) {
@@ -68,11 +79,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onerror = (event: any) => {
-      console.warn('Speech recognition error event:', event.error);
+      console.warn('Speech recognition event error:', event.error);
       if (event.error === 'not-allowed') {
-        setError('Microphone access was denied. Please allow microphone permissions in your browser or type your answer.');
+        setError('Microphone access was denied. Please allow microphone permissions in your browser.');
       } else if (event.error === 'no-speech') {
-        // No speech detected, keep waiting
+        // Keep waiting for user to speak
       } else {
         setError(`Speech error: ${event.error}. You can also type your answer.`);
       }
@@ -80,6 +91,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onend = () => {
+      // If there was any pending interim transcript, commit it to final transcript
+      if (interimRef.current && !transcriptRef.current.includes(interimRef.current.trim())) {
+        setTranscript((prev) => (prev ? `${prev} ${interimRef.current.trim()}` : interimRef.current.trim()));
+        setInterimTranscript('');
+      }
       setIsListening(false);
     };
 
@@ -100,9 +116,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     setInterimTranscript('');
     try {
       recognitionRef.current.start();
-    } catch (e: any) {
-      // If already started, ignore
-      console.warn('Could not start speech recognition:', e);
+      setIsListening(true);
+    } catch (err: any) {
+      if (err.name !== 'InvalidStateError') {
+        console.warn('Error starting speech recognition:', err);
+      }
     }
   }, []);
 
@@ -110,8 +128,13 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     if (!recognitionRef.current) return;
     try {
       recognitionRef.current.stop();
-    } catch (e) {
-      // ignore
+    } catch (err) {
+      console.warn('Error stopping speech recognition:', err);
+    }
+    // Commit any interim text immediately
+    if (interimRef.current) {
+      setTranscript((prev) => (prev ? `${prev} ${interimRef.current.trim()}` : interimRef.current.trim()));
+      setInterimTranscript('');
     }
     setIsListening(false);
   }, []);
@@ -119,7 +142,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const resetTranscript = useCallback(() => {
     setTranscript('');
     setInterimTranscript('');
-    setError(null);
+    transcriptRef.current = '';
+    interimRef.current = '';
   }, []);
 
   const setManualTranscript = useCallback((text: string) => {

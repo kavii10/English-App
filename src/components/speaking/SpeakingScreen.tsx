@@ -15,6 +15,8 @@ import {
   Play,
   CheckCircle2,
   BookOpen,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { AIAvatarVisualizer } from './AIAvatarVisualizer';
 import { TargetVocabTracker } from './TargetVocabTracker';
@@ -52,6 +54,8 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   const [currentAIPrompt, setCurrentAIPrompt] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [emptySpeechWarning, setEmptySpeechWarning] = useState<boolean>(false);
   const [latestAnalysis, setLatestAnalysis] = useState<TurnAnalysis | null>(null);
   const [latestResponseId, setLatestResponseId] = useState<string>('');
 
@@ -73,11 +77,13 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     startListening,
     stopListening,
     resetTranscript,
+    setManualTranscript,
   } = useSpeechRecognition();
 
   const { isSpeaking, speak, stop: stopSpeaking, autoSpeak, setAutoSpeak } = useSpeechSynthesis();
   const { frequencyData } = useAudioVisualizer(isListening || isSpeaking);
 
+  const analysisCardRef = useRef<HTMLDivElement>(null);
   const turnsEndRef = useRef<HTMLDivElement>(null);
 
   // Timer for session duration
@@ -93,6 +99,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     setIsInitializing(true);
     setTurns([]);
     setLatestAnalysis(null);
+    setAnalysisError(null);
     setTurnNumber(1);
     setStartTime(Date.now());
     setElapsedSeconds(0);
@@ -128,12 +135,17 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   // Submit User Speech
   const handleSubmitSpokenAnswer = async () => {
     stopListening();
-    const spokenContent = (isTypingMode ? manualInputText : transcript).trim();
-    if (!spokenContent) return;
+    setEmptySpeechWarning(false);
+    setAnalysisError(null);
+
+    const spokenContent = (isTypingMode ? manualInputText : (transcript || interimTranscript)).trim();
+    if (!spokenContent) {
+      setEmptySpeechWarning(true);
+      setTimeout(() => setEmptySpeechWarning(false), 4000);
+      return;
+    }
 
     setIsProcessingTurn(true);
-    resetTranscript();
-    setManualInputText('');
 
     try {
       const res = await api.submitConversationTurn({
@@ -148,9 +160,11 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
 
       setLatestAnalysis(res.analysis);
       setLatestResponseId(res.responseId);
+      resetTranscript();
+      setManualInputText('');
 
       // Track newly matched target vocabulary words
-      if (res.analysis.vocabulary.target_words_used.length > 0) {
+      if (res.analysis?.vocabulary?.target_words_used?.length > 0) {
         setUsedVocab((prev) => {
           const next = new Set([...prev, ...res.analysis.vocabulary.target_words_used]);
           return Array.from(next);
@@ -169,10 +183,11 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
       setTurns((prev) => [...prev, newTurn]);
 
       setTimeout(() => {
-        turnsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } catch (err) {
+        analysisCardRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    } catch (err: any) {
       console.error('Error submitting speaking turn:', err);
+      setAnalysisError(err?.message || 'Failed to analyze your response. Please try again.');
     } finally {
       setIsProcessingTurn(false);
     }
@@ -186,6 +201,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     setTurnNumber((prev) => prev + 1);
     setLatestAnalysis(null);
     resetTranscript();
+    setManualInputText('');
 
     if (autoSpeak) {
       speak(nextQuestion);
@@ -214,6 +230,8 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     setSessionId('');
     setTurns([]);
     setLatestAnalysis(null);
+    resetTranscript();
+    setManualInputText('');
   };
 
   const minutes = Math.floor(elapsedSeconds / 60);
@@ -307,7 +325,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                     type="text"
                     value={customTopic}
                     onChange={(e) => setCustomTopic(e.target.value)}
-                    placeholder="e.g., Preparing for my product manager presentation..."
+                    placeholder="e.g., Preparing for my presentation..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -320,8 +338,17 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                   disabled={isInitializing}
                   className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white font-black text-base shadow-xl shadow-emerald-500/20 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 disabled:opacity-50"
                 >
-                  <Play className="w-5 h-5 fill-current" />
-                  <span>{isInitializing ? 'Starting Session...' : 'Start AI Conversation'}</span>
+                  {isInitializing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Starting Conversation...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5 fill-current" />
+                      <span>Start AI Conversation</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -380,7 +407,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                 title="Stop and end conversation"
               >
                 <StopCircle className="w-4 h-4" />
-                <span>Stop & End Conversation</span>
+                <span>Stop & End</span>
               </button>
             </div>
           </div>
@@ -417,21 +444,57 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
               </p>
             </div>
 
+            {/* Processing Indicator */}
+            {isProcessingTurn && (
+              <div className="max-w-xl mx-auto bg-indigo-950/40 border border-indigo-500/40 rounded-2xl p-6 text-center space-y-2 animate-pulse">
+                <Loader2 className="w-7 h-7 text-indigo-400 mx-auto animate-spin" />
+                <h4 className="text-sm font-bold text-white">AI Coach is analyzing your spoken response...</h4>
+                <p className="text-xs text-indigo-200">Evaluating grammar, vocabulary, sentence quality, and conversational naturalness.</p>
+              </div>
+            )}
+
+            {/* Empty Speech Warning */}
+            {emptySpeechWarning && (
+              <div className="max-w-xl mx-auto bg-amber-950/40 border border-amber-500/40 rounded-xl p-3 text-xs text-amber-200 flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>No speech detected. Please speak into your mic or type your answer below.</span>
+              </div>
+            )}
+
+            {/* Analysis Error Alert */}
+            {analysisError && (
+              <div className="max-w-xl mx-auto bg-rose-950/40 border border-rose-500/40 rounded-xl p-3 text-xs text-rose-200 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{analysisError}</span>
+                </div>
+                <button
+                  onClick={handleSubmitSpokenAnswer}
+                  className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-xs"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Live Speech Recognition Area */}
-            {!latestAnalysis && (
+            {!latestAnalysis && !isProcessingTurn && (
               <div className="max-w-xl mx-auto space-y-4 pt-2">
                 {/* Live Interim Transcript or Text fallback */}
                 {!isTypingMode ? (
-                  <div className="min-h-[70px] bg-slate-950/80 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-center text-center">
+                  <div className="min-h-[80px] bg-slate-950/80 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-center text-center">
                     {isListening ? (
                       <p className="text-sm font-medium text-indigo-200 animate-pulse">
                         {transcript || interimTranscript || 'Listening... speak naturally now...'}
                       </p>
                     ) : transcript ? (
-                      <p className="text-sm font-medium text-white">"{transcript}"</p>
+                      <div className="space-y-1 w-full">
+                        <p className="text-sm font-medium text-white">"{transcript}"</p>
+                        <p className="text-[11px] text-emerald-400">Captured! Tap "Stop & Analyze Answer" to submit.</p>
+                      </div>
                     ) : (
                       <p className="text-xs text-slate-500">
-                        Press the <strong className="text-indigo-400">Start Speaking</strong> button below to answer aloud.
+                        Press <strong className="text-indigo-400">Start Speaking</strong> below and answer aloud.
                       </p>
                     )}
                   </div>
@@ -457,7 +520,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                           className="flex items-center gap-2.5 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-600/30 transition-all transform hover:scale-105"
                         >
                           <Mic className="w-5 h-5" />
-                          <span>Start Speaking</span>
+                          <span>{transcript ? 'Speak More / Record Again' : 'Start Speaking'}</span>
                         </button>
                       ) : (
                         <button
@@ -467,6 +530,18 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                         >
                           <StopCircle className="w-5 h-5" />
                           <span>Stop & Analyze Answer</span>
+                        </button>
+                      )}
+
+                      {/* If finished speaking and not listening, give quick Analyze button */}
+                      {!isListening && transcript && (
+                        <button
+                          onClick={handleSubmitSpokenAnswer}
+                          disabled={isProcessingTurn}
+                          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all"
+                        >
+                          <Send className="w-4 h-4" />
+                          <span>Analyze Spoken Answer</span>
                         </button>
                       )}
                     </>
@@ -513,14 +588,16 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
 
           {/* Turn Analysis Breakdown */}
           {latestAnalysis && (
-            <TurnAnalysisCard
-              analysis={latestAnalysis}
-              aiPrompt={currentAIPrompt}
-              turnNumber={turnNumber}
-              onRepeatSentence={(sentence) => setRepeatSentenceTarget(sentence)}
-              onContinueConversation={handleContinueConversation}
-              onEndSession={handleEndSession}
-            />
+            <div ref={analysisCardRef} className="pt-2">
+              <TurnAnalysisCard
+                analysis={latestAnalysis}
+                aiPrompt={currentAIPrompt}
+                turnNumber={turnNumber}
+                onRepeatSentence={(sentence) => setRepeatSentenceTarget(sentence)}
+                onContinueConversation={handleContinueConversation}
+                onEndSession={handleEndSession}
+              />
+            </div>
           )}
 
           {/* Repeat Modal */}
