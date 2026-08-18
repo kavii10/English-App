@@ -17,6 +17,10 @@ import {
   BookOpen,
   Loader2,
   AlertCircle,
+  Swords,
+  Briefcase,
+  Plane,
+  MessageSquare,
 } from 'lucide-react';
 import { AIAvatarVisualizer } from './AIAvatarVisualizer';
 import { TargetVocabTracker } from './TargetVocabTracker';
@@ -31,15 +35,22 @@ import { api } from '../../services/api';
 
 interface SpeakingScreenProps {
   initialTopic?: string;
+  userId?: string;
   onSessionEnded: () => void;
   onNavigateToVocab: () => void;
 }
 
+type PracticeMode = 'conversation' | 'debate' | 'interview' | 'roleplay';
+
 export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   initialTopic = 'Introduce Yourself & Share Your Daily Goals',
+  userId,
   onSessionEnded,
   onNavigateToVocab,
 }) => {
+  // Practice Mode
+  const [selectedMode, setSelectedMode] = useState<PracticeMode>('conversation');
+
   // Session State
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string>('');
@@ -77,7 +88,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     startListening,
     stopListening,
     resetTranscript,
-    setManualTranscript,
   } = useSpeechRecognition();
 
   const { isSpeaking, speak, stop: stopSpeaking, autoSpeak, setAutoSpeak } = useSpeechSynthesis();
@@ -85,6 +95,55 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
 
   const analysisCardRef = useRef<HTMLDivElement>(null);
   const turnsEndRef = useRef<HTMLDivElement>(null);
+
+  // Mode Topics
+  const modeData = {
+    conversation: {
+      title: 'Daily Conversation & Fluency',
+      icon: MessageSquare,
+      color: 'from-indigo-500 to-purple-600',
+      topics: [
+        'Introduce Yourself & Share Your Daily Goals',
+        'College Life, Studies & Recent Challenges',
+        'Weekend Travel, Hobbies & Personal Passions',
+        'Technology Trends & How AI is Changing Life',
+      ],
+    },
+    debate: {
+      title: '⚔️ AI Debate Arena (Persuasion & Quick Thinking)',
+      icon: Swords,
+      color: 'from-rose-500 to-amber-600',
+      topics: [
+        'Debate: Is Remote Work Better Than Office Work?',
+        'Debate: Will AI Replace Human Jobs or Create Better Opportunities?',
+        'Debate: Is a College Degree Still Necessary for Career Success?',
+        'Debate: Social Media Does More Harm Than Good to Youth',
+        'Debate: Passion vs High Salary: What Should Guide Career Choices?',
+      ],
+    },
+    interview: {
+      title: '💼 Job Interview Simulator (STAR Method)',
+      icon: Briefcase,
+      color: 'from-emerald-500 to-teal-600',
+      topics: [
+        'Mock Interview: Software Engineer / Tech Role',
+        'Mock Interview: Product Manager & Leadership',
+        'Mock Interview: Marketing & Client Strategy',
+        'Behavioral Interview: Tell Me About a Time You Overcame a Conflict',
+      ],
+    },
+    roleplay: {
+      title: '✈️ Real-World Scenario Roleplay',
+      icon: Plane,
+      color: 'from-blue-500 to-cyan-600',
+      topics: [
+        'Scenario: Ordering at a Busy London Café & Asking for Recommendations',
+        'Scenario: JFK Airport Immigration & Customs Check',
+        'Scenario: Resolving a Disputed Hotel Booking in New York',
+        'Scenario: Pitching an Idea to an Angel Investor',
+      ],
+    },
+  };
 
   // Timer for session duration
   useEffect(() => {
@@ -105,12 +164,14 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     setElapsedSeconds(0);
     setUsedVocab([]);
 
+    const activeUserId = userId || localStorage.getItem('speakwise_user_id') || 'usr_default';
     const effectiveTopic = customTopic.trim() || topic;
 
     try {
       const res = await api.startConversation({
         topic: effectiveTopic,
         difficulty,
+        userId: activeUserId,
       });
 
       setSessionId(res.sessionId);
@@ -119,7 +180,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
       setUserWeakness(res.userWeakness || 'Spoken Fluency');
       setHasStarted(true);
 
-      // Auto-speak initial question if enabled
       if (autoSpeak) {
         speak(res.aiPrompt);
       }
@@ -146,6 +206,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
     }
 
     setIsProcessingTurn(true);
+    const activeUserId = userId || localStorage.getItem('speakwise_user_id') || 'usr_default';
 
     try {
       const res = await api.submitConversationTurn({
@@ -156,6 +217,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
         targetVocab,
         difficulty,
         userWeakness,
+        userId: activeUserId,
       });
 
       setLatestAnalysis(res.analysis);
@@ -163,7 +225,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
       resetTranscript();
       setManualInputText('');
 
-      // Track newly matched target vocabulary words
       if (res.analysis?.vocabulary?.target_words_used?.length > 0) {
         setUsedVocab((prev) => {
           const next = new Set([...prev, ...res.analysis.vocabulary.target_words_used]);
@@ -171,7 +232,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
         });
       }
 
-      // Add to conversation history
       const newTurn: SpeakingTurn = {
         turnNumber,
         aiPrompt: currentAIPrompt,
@@ -212,10 +272,13 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   const handleEndSession = async () => {
     stopSpeaking();
     stopListening();
+    const activeUserId = userId || localStorage.getItem('speakwise_user_id') || 'usr_default';
+
     try {
       const summary = await api.endConversation({
         sessionId,
         durationSeconds: Math.max(5, elapsedSeconds),
+        userId: activeUserId,
       });
       setSessionSummary(summary);
     } catch (err) {
@@ -237,14 +300,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   const minutes = Math.floor(elapsedSeconds / 60);
   const seconds = elapsedSeconds % 60;
 
-  const popularTopics = [
-    'Introduce Yourself & Share Your Daily Goals',
-    'College Life, Studies & Recent Challenges',
-    'Career Ambitions & Job Interview Preparation',
-    'Weekend Travel, Hobbies & Personal Passions',
-    'Technology Trends & How AI is Changing Life',
-  ];
-
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       {/* 1. LOBBY VIEW: Before starting conversation */}
@@ -256,14 +311,43 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Personal AI Speaking Coach</span>
+              <span>Personal AI English Coach</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Ready to Practice Spoken English?
+              What do you want to practice today?
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Your AI coach will hold a natural spoken conversation with you, analyze your pronunciation, grammar, and fluency in real time, and teach you better ways to express your ideas.
+              Select a practice arena below to sharpen your conversational fluency, debate skills, or job interview readiness.
             </p>
+          </div>
+
+          {/* Mode Selector Tabs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-900/80 p-2 rounded-2xl border border-slate-800">
+            {(Object.keys(modeData) as PracticeMode[]).map((modeKey) => {
+              const info = modeData[modeKey];
+              const Icon = info.icon;
+              const isSelected = selectedMode === modeKey;
+
+              return (
+                <button
+                  key={modeKey}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMode(modeKey);
+                    setTopic(info.topics[0]);
+                    setCustomTopic('');
+                  }}
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all border ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg font-bold'
+                      : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 mb-1" />
+                  <span className="text-xs capitalize">{modeKey}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Topic & Difficulty Configuration */}
@@ -271,10 +355,10 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
             {/* Topic Selection */}
             <div className="space-y-3">
               <label className="text-xs uppercase font-bold text-slate-400 block tracking-wider">
-                Select Conversation Topic
+                Select {selectedMode.toUpperCase()} Topic
               </label>
               <div className="space-y-2">
-                {popularTopics.map((t) => (
+                {modeData[selectedMode].topics.map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -319,13 +403,13 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
 
                 <div className="pt-2">
                   <label className="text-xs uppercase font-bold text-slate-400 block tracking-wider mb-2">
-                    Or Enter Custom Topic
+                    Or Enter Custom Topic / Motion
                   </label>
                   <input
                     type="text"
                     value={customTopic}
                     onChange={(e) => setCustomTopic(e.target.value)}
-                    placeholder="e.g., Preparing for my presentation..."
+                    placeholder="e.g., Debate: Is electric transport really green?"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -341,12 +425,12 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                   {isInitializing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Starting Conversation...</span>
+                      <span>Starting {selectedMode.toUpperCase()}...</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-5 h-5 fill-current" />
-                      <span>Start AI Conversation</span>
+                      <span>Start AI Practice</span>
                     </>
                   )}
                 </button>
@@ -429,7 +513,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
               <div className="flex items-center justify-between text-xs text-indigo-400 font-bold mb-2">
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI Speaking Coach (Turn {turnNumber})</span>
+                  <span>AI Coach (Turn {turnNumber})</span>
                 </span>
                 <button
                   onClick={() => speak(currentAIPrompt)}
@@ -448,8 +532,8 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
             {isProcessingTurn && (
               <div className="max-w-xl mx-auto bg-indigo-950/40 border border-indigo-500/40 rounded-2xl p-6 text-center space-y-2 animate-pulse">
                 <Loader2 className="w-7 h-7 text-indigo-400 mx-auto animate-spin" />
-                <h4 className="text-sm font-bold text-white">AI Coach is analyzing your spoken response...</h4>
-                <p className="text-xs text-indigo-200">Evaluating grammar, vocabulary, sentence quality, and conversational naturalness.</p>
+                <h4 className="text-sm font-bold text-white">AI Coach is analyzing your response...</h4>
+                <p className="text-xs text-indigo-200">Evaluating grammar accuracy, vocabulary richness, sentence structure, and fluency.</p>
               </div>
             )}
 
@@ -533,7 +617,6 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                         </button>
                       )}
 
-                      {/* If finished speaking and not listening, give quick Analyze button */}
                       {!isListening && transcript && (
                         <button
                           onClick={handleSubmitSpokenAnswer}

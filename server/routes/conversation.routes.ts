@@ -7,7 +7,7 @@ import {
 } from '../services/gemini.js';
 import { getUserWeaknessProfile } from '../services/weakness.js';
 import { calculateOverallScore } from '../services/scoring.js';
-import { syncSessionToSupabase } from '../db/supabase.js';
+import { syncSessionToSupabase, syncUserToSupabase } from '../db/supabase.js';
 
 const router = Router();
 
@@ -201,7 +201,10 @@ router.post('/repeat-compare', async (req, res) => {
  */
 router.post('/end', async (req, res) => {
   try {
-    const { sessionId, durationSeconds = 180, userId = 'usr_default' } = req.body;
+    const { sessionId, durationSeconds = 180 } = req.body;
+    const session = db.prepare('SELECT user_id, topic, difficulty FROM speaking_sessions WHERE id = ?').get(sessionId) as any;
+    const userId = session?.user_id || req.body.userId || 'usr_default';
+    const effectiveTopic = session?.topic || 'English Conversation Practice';
 
     const responses = db.prepare(`
       SELECT * FROM speaking_responses WHERE session_id = ? ORDER BY turn_number ASC
@@ -319,6 +322,11 @@ router.post('/end', async (req, res) => {
       WHERE id = ?
     `).run(userId);
 
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    if (updatedUser) {
+      syncUserToSupabase(updatedUser);
+    }
+
     // Mark today's mission as completed
     const todayStr = new Date().toISOString().split('T')[0];
     db.prepare(`
@@ -331,7 +339,8 @@ router.post('/end', async (req, res) => {
     syncSessionToSupabase({
       id: sessionId,
       user_id: userId,
-      topic: responses[0]?.ai_prompt ? 'English Conversation Practice' : 'Daily Life',
+      topic: effectiveTopic,
+      difficulty: session?.difficulty || 'Intermediate',
       duration_seconds: durationSeconds,
       overall_score: overallScore,
       grammar_score: avgGrammar,

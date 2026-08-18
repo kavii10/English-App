@@ -95,6 +95,7 @@ export function App() {
 
           {activeTab === 'speaking' && (
             <SpeakingScreen
+              userId={user?.id}
               initialTopic={mission?.topic || 'Introduce Yourself & Share Your Daily Goals'}
               onSessionEnded={() => {
                 loadAllData(user?.id);
