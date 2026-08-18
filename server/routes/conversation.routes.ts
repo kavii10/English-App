@@ -78,6 +78,7 @@ router.post('/turn', async (req, res) => {
       difficulty = 'Intermediate',
       userWeakness = 'Past Tense',
       userId = 'usr_default',
+      mode = 'conversation',
     } = req.body;
 
     if (!userTranscript || !userTranscript.trim()) {
@@ -92,6 +93,7 @@ router.post('/turn', async (req, res) => {
       difficulty,
       userWeakness,
       userId,
+      mode,
     });
 
     const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;

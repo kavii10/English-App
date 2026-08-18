@@ -21,10 +21,15 @@ import {
   Briefcase,
   Plane,
   MessageSquare,
+  Award,
+  Image,
+  Eye,
+  Zap,
 } from 'lucide-react';
 import { AIAvatarVisualizer } from './AIAvatarVisualizer';
 import { TargetVocabTracker } from './TargetVocabTracker';
 import { TurnAnalysisCard } from './TurnAnalysisCard';
+import { ColorCodedTranscript } from './ColorCodedTranscript';
 import { RepeatModal } from './RepeatModal';
 import { SessionSummaryModal } from './SessionSummaryModal';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
@@ -40,7 +45,7 @@ interface SpeakingScreenProps {
   onNavigateToVocab: () => void;
 }
 
-type PracticeMode = 'conversation' | 'debate' | 'interview' | 'roleplay';
+type PracticeMode = 'pitch' | 'storyteller' | 'debate' | 'interview' | 'conversation';
 
 export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   initialTopic = 'Introduce Yourself & Share Your Daily Goals',
@@ -49,17 +54,17 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   onNavigateToVocab,
 }) => {
   // Practice Mode
-  const [selectedMode, setSelectedMode] = useState<PracticeMode>('conversation');
+  const [selectedMode, setSelectedMode] = useState<PracticeMode>('pitch');
 
   // Session State
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string>('');
-  const [topic, setTopic] = useState<string>(initialTopic);
+  const [topic, setTopic] = useState<string>('VC Pitch: 90-Second Seed Round Startup Elevator Pitch');
   const [customTopic, setCustomTopic] = useState<string>('');
-  const [difficulty, setDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Intermediate');
+  const [difficulty, setDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Advanced');
   const [targetVocab, setTargetVocab] = useState<string[]>([]);
   const [usedVocab, setUsedVocab] = useState<string[]>([]);
-  const [userWeakness, setUserWeakness] = useState<string>('Spoken Fluency');
+  const [userWeakness, setUserWeakness] = useState<string>('Executive Presence & Fluency');
   const [turnNumber, setTurnNumber] = useState<number>(1);
   const [turns, setTurns] = useState<SpeakingTurn[]>([]);
   const [currentAIPrompt, setCurrentAIPrompt] = useState<string>('');
@@ -96,23 +101,41 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
   const analysisCardRef = useRef<HTMLDivElement>(null);
   const turnsEndRef = useRef<HTMLDivElement>(null);
 
-  // Mode Topics
+  // Mode Arenas Definition
   const modeData = {
-    conversation: {
-      title: 'Daily Conversation & Fluency',
-      icon: MessageSquare,
-      color: 'from-indigo-500 to-purple-600',
+    pitch: {
+      title: 'Founder & CEO Pitch Coach (90s Executive Mode)',
+      badge: 'Executive Leadership',
+      icon: Award,
+      color: 'from-amber-500 via-orange-600 to-indigo-600',
+      description: 'Master high-stakes startup pitching, vision communication, and executive authority. Learn to eliminate weak phrases and command the room.',
       topics: [
-        'Introduce Yourself & Share Your Daily Goals',
-        'College Life, Studies & Recent Challenges',
-        'Weekend Travel, Hobbies & Personal Passions',
-        'Technology Trends & How AI is Changing Life',
+        'VC Pitch: 90-Second Seed Round Startup Elevator Pitch',
+        'Product Keynote: Announcing a Major Breakthrough to Users',
+        'All-Hands Meeting: Inspiring the Engineering & Product Team',
+        'Enterprise Negotiation: Closing a High-Stakes B2B Strategic Deal',
+        'Crisis Communication: Addressing Critical Product Downtime with Authority',
+      ],
+    },
+    storyteller: {
+      title: 'Visual Storyteller (60-Second Picture Challenge)',
+      badge: 'Descriptive Fluency',
+      icon: Image,
+      color: 'from-teal-500 to-cyan-600',
+      description: 'Look at dynamic visual scenes and spontaneously narrate the story in 60 seconds. Train spatial prepositions, rich adjectives, and narrative pacing.',
+      topics: [
+        'Describe Scene: Silicon Valley Boardroom Strategic Debate',
+        'Describe Scene: Bustling Rainy Night Market in Tokyo',
+        'Describe Scene: Futuristic Autonomous Smart City Hub',
+        'Describe Scene: Cozy Startup Co-Working Coffee Shop',
       ],
     },
     debate: {
-      title: '⚔️ AI Debate Arena (Persuasion & Quick Thinking)',
+      title: 'The AI Debate Arena',
+      badge: 'Critical Thinking',
       icon: Swords,
       color: 'from-rose-500 to-amber-600',
+      description: 'Engage in fast-paced debates against the AI. Defend your stance with structured logic, counter-arguments, and persuasive rhetoric.',
       topics: [
         'Debate: Is Remote Work Better Than Office Work?',
         'Debate: Will AI Replace Human Jobs or Create Better Opportunities?',
@@ -122,9 +145,11 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
       ],
     },
     interview: {
-      title: '💼 Job Interview Simulator (STAR Method)',
+      title: 'Job Interview Simulator',
+      badge: 'Career Readiness',
       icon: Briefcase,
       color: 'from-emerald-500 to-teal-600',
+      description: 'Practice behavioral STAR-method and technical interviews with an AI hiring manager.',
       topics: [
         'Mock Interview: Software Engineer / Tech Role',
         'Mock Interview: Product Manager & Leadership',
@@ -132,15 +157,17 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
         'Behavioral Interview: Tell Me About a Time You Overcame a Conflict',
       ],
     },
-    roleplay: {
-      title: '✈️ Real-World Scenario Roleplay',
-      icon: Plane,
-      color: 'from-blue-500 to-cyan-600',
+    conversation: {
+      title: 'Daily Conversation & Small Talk',
+      badge: 'Natural Flow',
+      icon: MessageSquare,
+      color: 'from-indigo-500 to-purple-600',
+      description: 'Casual, friendly English conversations to build day-to-day confidence, natural rhythm, and relaxed speaking tone.',
       topics: [
-        'Scenario: Ordering at a Busy London Café & Asking for Recommendations',
-        'Scenario: JFK Airport Immigration & Customs Check',
-        'Scenario: Resolving a Disputed Hotel Booking in New York',
-        'Scenario: Pitching an Idea to an Angel Investor',
+        'Introduce Yourself & Share Your Daily Goals',
+        'College Life, Studies & Recent Challenges',
+        'Weekend Travel, Hobbies & Personal Passions',
+        'Technology Trends & How AI is Changing Life',
       ],
     },
   };
@@ -218,6 +245,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
         difficulty,
         userWeakness,
         userId: activeUserId,
+        mode: selectedMode,
       });
 
       setLatestAnalysis(res.analysis);
@@ -306,7 +334,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
       {!hasStarted ? (
         <div className="glass-panel rounded-3xl p-6 sm:p-10 border border-slate-800 space-y-8 shadow-2xl relative overflow-hidden">
           {/* Background glow */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
 
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
@@ -314,15 +342,15 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
               <span>Personal AI English Coach</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              What do you want to practice today?
+              Select Your Speaking Arena
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Select a practice arena below to sharpen your conversational fluency, debate skills, or job interview readiness.
+              Choose Founder & CEO Executive Pitch mode, 60s Visual Storytelling, AI Debate Arena, or Job Interviews.
             </p>
           </div>
 
           {/* Mode Selector Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-900/80 p-2 rounded-2xl border border-slate-800">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800">
             {(Object.keys(modeData) as PracticeMode[]).map((modeKey) => {
               const info = modeData[modeKey];
               const Icon = info.icon;
@@ -339,15 +367,25 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                   }}
                   className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all border ${
                     isSelected
-                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg font-bold'
+                      ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-400 shadow-lg font-bold'
                       : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Icon className="w-5 h-5 mb-1" />
-                  <span className="text-xs capitalize">{modeKey}</span>
+                  <span className="text-xs capitalize">{modeKey === 'pitch' ? 'CEO Pitch' : modeKey}</span>
+                  <span className="text-[9px] text-slate-400 font-normal">{info.badge}</span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Mode Description Banner */}
+          <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20 text-xs text-slate-200 flex items-start gap-3">
+            <Zap className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-indigo-300 mr-1.5">{modeData[selectedMode].title}:</span>
+              <span>{modeData[selectedMode].description}</span>
+            </div>
           </div>
 
           {/* Topic & Difficulty Configuration */}
@@ -355,7 +393,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
             {/* Topic Selection */}
             <div className="space-y-3">
               <label className="text-xs uppercase font-bold text-slate-400 block tracking-wider">
-                Select {selectedMode.toUpperCase()} Topic
+                Select Practice Topic / Motion
               </label>
               <div className="space-y-2">
                 {modeData[selectedMode].topics.map((t) => (
@@ -403,13 +441,13 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
 
                 <div className="pt-2">
                   <label className="text-xs uppercase font-bold text-slate-400 block tracking-wider mb-2">
-                    Or Enter Custom Topic / Motion
+                    Or Enter Custom Topic / Pitch Scenario
                   </label>
                   <input
                     type="text"
                     value={customTopic}
                     onChange={(e) => setCustomTopic(e.target.value)}
-                    placeholder="e.g., Debate: Is electric transport really green?"
+                    placeholder="e.g., Pitching my AI fintech startup to Sequoia Capital..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -425,12 +463,12 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                   {isInitializing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Starting {selectedMode.toUpperCase()}...</span>
+                      <span>Preparing Speaking Arena...</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-5 h-5 fill-current" />
-                      <span>Start AI Practice</span>
+                      <span>Start {modeData[selectedMode].badge}</span>
                     </>
                   )}
                 </button>
@@ -449,7 +487,9 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase font-bold text-indigo-400">Live AI Conversation</span>
+                  <span className="text-xs uppercase font-bold text-indigo-400">
+                    {modeData[selectedMode].badge} Mode
+                  </span>
                   <span className="flex items-center gap-1 text-[11px] font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">
                     <Clock className="w-3 h-3 text-slate-500" />
                     {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
@@ -513,7 +553,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
               <div className="flex items-center justify-between text-xs text-indigo-400 font-bold mb-2">
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI Coach (Turn {turnNumber})</span>
+                  <span>AI Speaking Coach (Turn {turnNumber})</span>
                 </span>
                 <button
                   onClick={() => speak(currentAIPrompt)}
@@ -532,8 +572,8 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
             {isProcessingTurn && (
               <div className="max-w-xl mx-auto bg-indigo-950/40 border border-indigo-500/40 rounded-2xl p-6 text-center space-y-2 animate-pulse">
                 <Loader2 className="w-7 h-7 text-indigo-400 mx-auto animate-spin" />
-                <h4 className="text-sm font-bold text-white">AI Coach is analyzing your response...</h4>
-                <p className="text-xs text-indigo-200">Evaluating grammar accuracy, vocabulary richness, sentence structure, and fluency.</p>
+                <h4 className="text-sm font-bold text-white">AI Coach is analyzing your response & executive presence...</h4>
+                <p className="text-xs text-indigo-200">Evaluating grammar accuracy, vocabulary richness, power words, and leadership flow.</p>
               </div>
             )}
 
@@ -569,7 +609,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                   <div className="min-h-[80px] bg-slate-950/80 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-center text-center">
                     {isListening ? (
                       <p className="text-sm font-medium text-indigo-200 animate-pulse">
-                        {transcript || interimTranscript || 'Listening... speak naturally now...'}
+                        {transcript || interimTranscript || 'Listening... speak clearly now...'}
                       </p>
                     ) : transcript ? (
                       <div className="space-y-1 w-full">
@@ -662,7 +702,7 @@ export const SpeakingScreen: React.FC<SpeakingScreenProps> = ({
                     onClick={handleResetToLobby}
                     className="text-xs text-slate-400 hover:text-slate-300 font-semibold"
                   >
-                    Change Topic
+                    Change Arena / Topic
                   </button>
                 </div>
               </div>

@@ -1,6 +1,9 @@
 import React from 'react';
 import { ScoreBadge } from '../common/ScoreBadge';
 import { SayItBetterTabs } from './SayItBetterTabs';
+import { ColorCodedTranscript } from './ColorCodedTranscript';
+import { ExecutivePitchCard } from './ExecutivePitchCard';
+import { VisualStorytellerCard } from './VisualStorytellerCard';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -79,7 +82,30 @@ export const TurnAnalysisCard: React.FC<TurnAnalysisCardProps> = ({
         </div>
       </div>
 
-      {/* 2. Grammar Mistakes Breakdown */}
+      {/* 2. Live Color-Coded Subtitles */}
+      {analysis.color_tokens && analysis.color_tokens.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block px-1">
+            Speech Analysis & Highlighted Tokens:
+          </span>
+          <ColorCodedTranscript
+            tokens={analysis.color_tokens}
+            rawText={analysis.transcript}
+          />
+        </div>
+      )}
+
+      {/* 3. Founder & CEO Executive Pitch Card */}
+      {analysis.executive_pitch && (
+        <ExecutivePitchCard analysis={analysis.executive_pitch} />
+      )}
+
+      {/* 4. Visual Storyteller Card */}
+      {analysis.visual_storyteller && (
+        <VisualStorytellerCard analysis={analysis.visual_storyteller} />
+      )}
+
+      {/* 5. Grammar Mistakes Breakdown */}
       {hasGrammarErrors ? (
         <div className="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-5 shadow-xl space-y-3">
           <div className="flex items-center gap-2 text-rose-400">
@@ -124,7 +150,7 @@ export const TurnAnalysisCard: React.FC<TurnAnalysisCardProps> = ({
         </div>
       )}
 
-      {/* 3. Filler Word Alert */}
+      {/* 6. Filler Word Alert */}
       {hasFillers && (
         <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-amber-400">
@@ -144,7 +170,7 @@ export const TurnAnalysisCard: React.FC<TurnAnalysisCardProps> = ({
         </div>
       )}
 
-      {/* 4. Say It Better (3-Tier sentence improvements) */}
+      {/* 7. Say It Better (3-Tier sentence improvements) */}
       {improvements.length > 0 && (
         <SayItBetterTabs
           improvement={improvements[0]}
@@ -152,7 +178,7 @@ export const TurnAnalysisCard: React.FC<TurnAnalysisCardProps> = ({
         />
       )}
 
-      {/* 5. Encouragement & Follow-up Action CTA */}
+      {/* 8. Encouragement & Follow-up Action CTA */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
         <button
           onClick={onEndSession}

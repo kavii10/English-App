@@ -104,6 +104,34 @@ export interface TurnAnalysis {
   };
   follow_up_question: string;
   encouragement: string;
+  color_tokens?: ColorToken[];
+  executive_pitch?: ExecutivePitchAnalysis;
+  visual_storyteller?: VisualStorytellerAnalysis;
+}
+
+export interface ColorToken {
+  text: string;
+  type: 'normal' | 'filler' | 'power_vocab' | 'connector' | 'mistake';
+  correction?: string;
+  explanation?: string;
+}
+
+export interface ExecutivePitchAnalysis {
+  executive_presence_score: number;
+  vision_clarity_score: number;
+  persuasiveness_score: number;
+  weak_phrases_detected: Array<{ original: string; strong_alternative: string; why: string }>;
+  founder_power_words_used: string[];
+  founder_power_words_recommended: string[];
+  investor_readiness_verdict: string;
+  leadership_feedback: string;
+}
+
+export interface VisualStorytellerAnalysis {
+  descriptive_score: number;
+  spatial_vocabulary_used: string[];
+  narrative_flow_verdict: string;
+  vivid_adjectives_used: string[];
 }
 
 export interface RepeatComparisonResult {

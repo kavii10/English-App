@@ -107,6 +107,7 @@ export const api = {
     difficulty?: string;
     userWeakness?: string;
     userId?: string;
+    mode?: string;
   }): Promise<{ responseId: string; analysis: TurnAnalysis }> {
     return fetchJson(`${API_BASE}/conversation/turn`, {
       method: 'POST',

@@ -43,6 +43,31 @@ function getModel(modelName: string = 'gemini-3.6-flash') {
   });
 }
 
+export interface ColorToken {
+  text: string;
+  type: 'normal' | 'filler' | 'power_vocab' | 'connector' | 'mistake';
+  correction?: string;
+  explanation?: string;
+}
+
+export interface ExecutivePitchAnalysis {
+  executive_presence_score: number;
+  vision_clarity_score: number;
+  persuasiveness_score: number;
+  weak_phrases_detected: Array<{ original: string; strong_alternative: string; why: string }>;
+  founder_power_words_used: string[];
+  founder_power_words_recommended: string[];
+  investor_readiness_verdict: string;
+  leadership_feedback: string;
+}
+
+export interface VisualStorytellerAnalysis {
+  descriptive_score: number;
+  spatial_vocabulary_used: string[];
+  narrative_flow_verdict: string;
+  vivid_adjectives_used: string[];
+}
+
 export interface ConversationTurnAnalysis {
   transcript: string;
   overall_score: number;
@@ -90,6 +115,91 @@ export interface ConversationTurnAnalysis {
   };
   follow_up_question: string;
   encouragement: string;
+  color_tokens?: ColorToken[];
+  executive_pitch?: ExecutivePitchAnalysis;
+  visual_storyteller?: VisualStorytellerAnalysis;
+}
+
+export const FOUNDER_POWER_WORDS = [
+  'scalability', 'scalable', 'traction', 'paradigm shift', 'competitive moat', 'moat',
+  'sustainable growth', 'strategic alignment', 'unit economics', 'value proposition',
+  'bottleneck', 'pivot', 'retention', 'velocity', 'monetization', 'milestone',
+  'disruptive', 'synergy', 'leverage', 'flywheel', 'market penetration', 'differentiation',
+  'ecosystem', 'capital efficiency', 'runway', 'product-market fit', 'frictionless',
+  'streamlined', 'mission-critical', 'core competency', 'roi', 'exponential',
+  'stakeholder', 'optimize', 'execution', 'benchmark', 'iterate', 'value driver',
+  'compelling', 'visionary', 'transformative', 'resilience', 'sustainable'
+];
+
+export const POWER_CONNECTORS = [
+  'furthermore', 'moreover', 'consequently', 'in particular', 'in essence',
+  'on the contrary', 'notably', 'to illustrate', 'ultimately', 'by contrast',
+  'as a result', 'in addition', 'specifically', 'nevertheless', 'accordingly',
+  'in other words', 'conversely', 'hence', 'thus', 'therefore', 'subsequently'
+];
+
+export const WEAK_PHRASES = [
+  { phrase: 'i kind of think', alternative: 'I am confident that', why: 'Eliminates hesitation and projects conviction.' },
+  { phrase: 'maybe we can', alternative: 'Our strategic plan is to', why: 'Replaces passive guessing with executive action.' },
+  { phrase: 'sort of like', alternative: 'Specifically, it operates as', why: 'Provides clarity and crisp positioning.' },
+  { phrase: 'i guess', alternative: 'Based on our data', why: 'Grounds your statement in objective authority.' },
+  { phrase: 'i am not really sure', alternative: 'We are validating this milestone', why: 'Reframes uncertainty into structured execution.' },
+  { phrase: 'hopefully we might', alternative: 'Our roadmap targets', why: 'Replaces hopeful language with goal-oriented leadership.' },
+  { phrase: 'it is just', alternative: 'It is exclusively designed to', why: 'Never diminish your product or team with "just".' },
+  { phrase: 'we will try to', alternative: 'We are committed to delivering', why: 'Shows accountability and founder resolve.' }
+];
+
+export function tokenizeAndColorTranscript(
+  transcript: string,
+  errors: Array<{ mistake: string; correction: string; explanation: string }> = [],
+  fillerWords: Array<{ word: string }> = []
+): ColorToken[] {
+  if (!transcript || !transcript.trim()) return [];
+
+  const fillerSet = new Set(fillerWords.map((f) => f.word.toLowerCase()));
+  const powerSet = new Set(FOUNDER_POWER_WORDS.map((w) => w.toLowerCase()));
+  const connectorSet = new Set(POWER_CONNECTORS.map((c) => c.toLowerCase()));
+
+  const words = transcript.split(/\s+/);
+  const tokens: ColorToken[] = [];
+
+  for (const rawWord of words) {
+    const cleanWord = rawWord.toLowerCase().replace(/[^a-z0-9'-]/g, '');
+
+    // Check if part of a grammar mistake
+    const matchedError = errors.find((e) => e.mistake.toLowerCase().includes(cleanWord));
+
+    if (matchedError && cleanWord.length > 2) {
+      tokens.push({
+        text: rawWord,
+        type: 'mistake',
+        correction: matchedError.correction,
+        explanation: matchedError.explanation,
+      });
+    } else if (fillerSet.has(cleanWord)) {
+      tokens.push({
+        text: rawWord,
+        type: 'filler',
+      });
+    } else if (powerSet.has(cleanWord)) {
+      tokens.push({
+        text: rawWord,
+        type: 'power_vocab',
+      });
+    } else if (connectorSet.has(cleanWord)) {
+      tokens.push({
+        text: rawWord,
+        type: 'connector',
+      });
+    } else {
+      tokens.push({
+        text: rawWord,
+        type: 'normal',
+      });
+    }
+  }
+
+  return tokens;
 }
 
 /**
@@ -151,6 +261,7 @@ export async function analyzeUserResponse(params: {
   userWeakness?: string;
   difficulty?: string;
   userId?: string;
+  mode?: string;
 }): Promise<ConversationTurnAnalysis> {
   const {
     aiPrompt,
@@ -159,20 +270,27 @@ export async function analyzeUserResponse(params: {
     userWeakness = 'Past Tense',
     difficulty = 'Intermediate',
     userId = 'usr_default',
+    mode = 'conversation',
   } = params;
 
   // Compute deterministic filler word statistics and vocabulary usage
   const fillerAnalysis = detectFillerWords(userTranscript);
   const vocabUsage = analyzeVocabularyUsage(userTranscript, targetVocab);
 
+  // Founder & CEO Power Words and Weak phrases detection
+  const usedPowerWords = Array.from(new Set(FOUNDER_POWER_WORDS.filter((w) => userTranscript.toLowerCase().includes(w.toLowerCase()))));
+  const detectedWeak = WEAK_PHRASES.filter((wp) => userTranscript.toLowerCase().includes(wp.phrase.toLowerCase()));
+
   const model = getModel();
 
   if (!model) {
-    return generateFallbackAnalysis(aiPrompt, userTranscript, targetVocab, fillerAnalysis, vocabUsage, userId);
+    const fallback = generateFallbackAnalysis(aiPrompt, userTranscript, targetVocab, fillerAnalysis, vocabUsage, userId);
+    fallback.color_tokens = tokenizeAndColorTranscript(userTranscript, fallback.grammar.errors, fillerAnalysis.items);
+    return fallback;
   }
 
   const systemInstruction = `
-You are the analysis engine for SpeakWise AI, a high-precision English communication coach.
+You are the analysis engine for SpeakWise AI, an elite English communication coach and Executive Leadership Trainer.
 Analyze the user's spoken response to the AI's previous prompt.
 
 CRITICAL ACCURACY RULES:
@@ -186,6 +304,8 @@ CRITICAL ACCURACY RULES:
    - "explanation": Concise, encouraging reason.
 5. Provide a natural follow-up question to keep the conversation flowing smoothly.
 6. Provide score estimates between 40 and 100 for grammar, vocabulary, fluency, naturalness, and sentence_formation.
+7. If mode is "pitch" (Founder & CEO mode), evaluate executive presence, investor conviction, vision clarity, and leadership phrasing.
+8. If mode is "storyteller", evaluate descriptive vocabulary, narrative pacing, and scene visualization.
 
 Return STRICT JSON matching this schema:
 {
@@ -231,11 +351,30 @@ Return STRICT JSON matching this schema:
     "focus_tip": "pronunciation or phrasing tip"
   },
   "follow_up_question": "natural conversational follow-up question continuing the topic",
-  "encouragement": "short motivating remark"
+  "encouragement": "short motivating remark",
+  "executive_pitch": {
+    "executive_presence_score": number,
+    "vision_clarity_score": number,
+    "persuasiveness_score": number,
+    "weak_phrases_detected": [
+      { "original": "weak phrase snippet", "strong_alternative": "executive authority alternative", "why": "reason" }
+    ],
+    "founder_power_words_used": ["word1"],
+    "founder_power_words_recommended": ["scalable", "strategic alignment", "competitive moat"],
+    "investor_readiness_verdict": "Clear, compelling executive summary verdict",
+    "leadership_feedback": "Actionable feedback for founder communication"
+  },
+  "visual_storyteller": {
+    "descriptive_score": number,
+    "spatial_vocabulary_used": ["in the foreground", "surrounded by"],
+    "narrative_flow_verdict": "Engaging storytelling flow",
+    "vivid_adjectives_used": ["bustling", "vibrant"]
+  }
 }
 `;
 
   const userContent = `
+Practice Mode: ${mode}
 AI Coach Asked: "${aiPrompt}"
 User Spoke: "${userTranscript}"
 Target Vocabulary for Today: ${JSON.stringify(targetVocab)}
@@ -291,6 +430,27 @@ User's known recurring weakness: ${userWeakness}
     }
 
     const repeatSentence = parsed.repeat_task?.sentence || improvements[0]?.natural || improvements[0]?.corrected || userTranscript;
+    const colorTokens = tokenizeAndColorTranscript(userTranscript, parsed.grammar?.errors || [], fillerAnalysis.items);
+
+    // Executive Pitch calculations (if mode === 'pitch' or default)
+    const execPitch: ExecutivePitchAnalysis = {
+      executive_presence_score: Number(parsed.executive_pitch?.executive_presence_score) || Math.min(100, Math.max(45, overallScore + (usedPowerWords.length * 4) - (detectedWeak.length * 5))),
+      vision_clarity_score: Number(parsed.executive_pitch?.vision_clarity_score) || Math.min(100, Math.max(50, sScore + 5)),
+      persuasiveness_score: Number(parsed.executive_pitch?.persuasiveness_score) || Math.min(100, Math.max(50, vScore + (usedPowerWords.length * 3))),
+      weak_phrases_detected: parsed.executive_pitch?.weak_phrases_detected?.length ? parsed.executive_pitch.weak_phrases_detected : detectedWeak.map(dw => ({ original: dw.phrase, strong_alternative: dw.alternative, why: dw.why })),
+      founder_power_words_used: usedPowerWords,
+      founder_power_words_recommended: parsed.executive_pitch?.founder_power_words_recommended || ['scalable', 'competitive moat', 'strategic alignment', 'value driver'],
+      investor_readiness_verdict: parsed.executive_pitch?.investor_readiness_verdict || (usedPowerWords.length > 1 ? 'Strong, authoritative communication with clear commercial value.' : 'Promising clarity. Incorporate more decisive leadership and commercial power words.'),
+      leadership_feedback: parsed.executive_pitch?.leadership_feedback || 'Replace filler words with deliberate 2-second pauses to command executive presence.',
+    };
+
+    // Visual Storyteller calculations
+    const visualStory: VisualStorytellerAnalysis = {
+      descriptive_score: Number(parsed.visual_storyteller?.descriptive_score) || Math.min(100, Math.max(50, vScore + 5)),
+      spatial_vocabulary_used: parsed.visual_storyteller?.spatial_vocabulary_used || ['in the background', 'alongside', 'surrounded by'],
+      narrative_flow_verdict: parsed.visual_storyteller?.narrative_flow_verdict || 'Clear chronological storytelling with expressive descriptions.',
+      vivid_adjectives_used: parsed.visual_storyteller?.vivid_adjectives_used || ['compelling', 'vibrant', 'focused'],
+    };
 
     return {
       transcript: userTranscript,
@@ -328,10 +488,15 @@ User's known recurring weakness: ${userWeakness}
       },
       follow_up_question: parsed.follow_up_question || 'That sounds interesting! What happened next?',
       encouragement: parsed.encouragement || 'Great job expressing your ideas clearly!',
+      color_tokens: colorTokens,
+      executive_pitch: execPitch,
+      visual_storyteller: visualStory,
     };
   } catch (error) {
     console.error('Error analyzing response with Gemini JSON schema, using resilient fallback:', error);
-    return generateFallbackAnalysis(aiPrompt, userTranscript, targetVocab, fillerAnalysis, vocabUsage, userId);
+    const fallback = generateFallbackAnalysis(aiPrompt, userTranscript, targetVocab, fillerAnalysis, vocabUsage, userId);
+    fallback.color_tokens = tokenizeAndColorTranscript(userTranscript, fallback.grammar.errors, fillerAnalysis.items);
+    return fallback;
   }
 }
 
