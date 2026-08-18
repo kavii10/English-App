@@ -57,6 +57,7 @@ export function initDatabase() {
       sentences_improved_count INTEGER NOT NULL DEFAULT 0,
       strengths_json TEXT,
       improvements_json TEXT,
+      tomorrows_focus TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -161,6 +162,12 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_flashcards_user_next_review ON user_flashcards(user_id, next_review);
     CREATE INDEX IF NOT EXISTS idx_mistakes_user_cat ON user_mistakes(user_id, category);
   `);
+
+  try {
+    db.exec(`ALTER TABLE speaking_sessions ADD COLUMN tomorrows_focus TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
 
   console.log('Database initialized successfully at', dbPath);
 }

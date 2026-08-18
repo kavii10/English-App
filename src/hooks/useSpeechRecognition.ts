@@ -14,7 +14,7 @@ export interface UseSpeechRecognitionReturn {
   interimTranscript: string;
   isSupported: boolean;
   error: string | null;
-  startListening: () => void;
+  startListening: () => Promise<void>;
   stopListening: () => void;
   resetTranscript: () => void;
   setManualTranscript: (text: string) => void;
@@ -27,10 +27,13 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
   const transcriptRef = useRef<string>('');
   const interimRef = useRef<string>('');
 
-  const isSupported = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const isSupported =
+    typeof window !== 'undefined' &&
+    Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -40,11 +43,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     interimRef.current = interimTranscript;
   }, [interimTranscript]);
 
-  useEffect(() => {
-    if (!isSupported) {
-      setError('Speech recognition is not supported in this browser. You can type your answers directly.');
-      return;
-    }
+  // Create and configure a fresh SpeechRecognition instance
+  const initRecognition = useCallback(() => {
+    if (!isSupported) return null;
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognitionAPI();
@@ -56,6 +57,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
     recognition.onstart = () => {
       setIsListening(true);
+      isListeningRef.current = true;
       setError(null);
     };
 
@@ -66,7 +68,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const item = event.results[i];
         if (item.isFinal) {
-          currentFinal += item[0].transcript;
+          currentFinal += item[0].transcript + ' ';
         } else {
           currentInterim += item[0].transcript;
         }
@@ -79,59 +81,106 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onerror = (event: any) => {
-      console.warn('Speech recognition event error:', event.error);
-      if (event.error === 'not-allowed') {
-        setError('Microphone access was denied. Please allow microphone permissions in your browser.');
-      } else if (event.error === 'no-speech') {
-        // Keep waiting for user to speak
-      } else {
-        setError(`Speech error: ${event.error}. You can also type your answer.`);
+      if (event.error === 'no-speech') {
+        // Mobile timed out due to brief silence, keep active
+        return;
       }
-      setIsListening(false);
+      console.warn('Speech recognition error on mobile/desktop:', event.error);
+      if (event.error === 'not-allowed') {
+        setError('Microphone access was denied. Please allow microphone access in your browser settings.');
+      } else if (event.error === 'audio-capture') {
+        setError('No microphone was found or microphone is busy.');
+      }
     };
 
     recognition.onend = () => {
-      // If there was any pending interim transcript, commit it to final transcript
+      // Commit any remaining interim words
       if (interimRef.current && !transcriptRef.current.includes(interimRef.current.trim())) {
         setTranscript((prev) => (prev ? `${prev} ${interimRef.current.trim()}` : interimRef.current.trim()));
         setInterimTranscript('');
       }
-      setIsListening(false);
-    };
 
-    recognitionRef.current = recognition;
-
-    return () => {
-      try {
-        recognition.abort();
-      } catch {
-        // ignore
+      // If user is still in listening mode (e.g. mobile auto-ended after brief pause), auto-restart
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              // already active or restarted
+            }
+          }
+        }, 150);
+      } else {
+        setIsListening(false);
       }
     };
+
+    return recognition;
   }, [isSupported]);
 
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) return;
+  // Request native hardware microphone access before starting recognition (Crucial on Mobile Android/iOS)
+  const startListening = useCallback(async () => {
+    if (!isSupported) {
+      setError('Speech recognition is not supported in this browser. You can type your response.');
+      return;
+    }
+
     setError(null);
     setInterimTranscript('');
+    isListeningRef.current = true;
+
+    // 1. Request microphone permission explicitly to pre-warm mobile audio driver
     try {
-      recognitionRef.current.start();
-      setIsListening(true);
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Immediately release stream tracks so SpeechRecognition has full exclusive access
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    } catch (err: any) {
+      console.warn('Microphone permission request issue:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Microphone access denied. Tap the lock/tune icon in your address bar and set Microphone to "Allow".');
+        isListeningRef.current = false;
+        return;
+      }
+    }
+
+    // 2. Start speech recognition with clean instance
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+
+      const recognition = initRecognition();
+      recognitionRef.current = recognition;
+
+      if (recognition) {
+        recognition.start();
+        setIsListening(true);
+      }
     } catch (err: any) {
       if (err.name !== 'InvalidStateError') {
         console.warn('Error starting speech recognition:', err);
+        setError('Could not start microphone. Please check permissions or type your answer.');
+        isListeningRef.current = false;
+        setIsListening(false);
       }
     }
-  }, []);
+  }, [initRecognition, isSupported]);
 
   const stopListening = useCallback(() => {
-    if (!recognitionRef.current) return;
-    try {
-      recognitionRef.current.stop();
-    } catch (err) {
-      console.warn('Error stopping speech recognition:', err);
+    isListeningRef.current = false;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.warn('Error stopping speech recognition:', err);
+      }
     }
-    // Commit any interim text immediately
+
     if (interimRef.current) {
       setTranscript((prev) => (prev ? `${prev} ${interimRef.current.trim()}` : interimRef.current.trim()));
       setInterimTranscript('');
@@ -148,6 +197,18 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
   const setManualTranscript = useCallback((text: string) => {
     setTranscript(text);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isListeningRef.current = false;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+    };
   }, []);
 
   return {

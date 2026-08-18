@@ -115,6 +115,13 @@ export async function syncSessionToSupabase(sessionData: any) {
 export async function syncFlashcardToSupabase(flashcardData: any) {
   if (!supabase) return;
   try {
+    if (flashcardData.user_id) {
+      await syncUserToSupabase({
+        id: flashcardData.user_id,
+        name: flashcardData.user_id.replace('usr_', '').replace(/_/g, ' ') || 'Learner',
+      });
+    }
+
     const { error } = await supabase.from('user_flashcards').upsert({
       id: flashcardData.id,
       user_id: flashcardData.user_id,

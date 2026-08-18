@@ -28,7 +28,7 @@ export function setApiKey(key: string): void {
 /**
  * Get configured Gemini generative model
  */
-function getModel(modelName: string = 'gemini-3.6-flash') {
+function getModel(modelName: string = 'gemini-1.5-flash') {
   const apiKey = getApiKey();
   if (!apiKey) {
     return null;

@@ -222,15 +222,22 @@ export const HandsFreeScreen: React.FC<HandsFreeScreenProps> = ({
     }
   };
 
-  const { phase, interimText, startHandsFree, stopHandsFree, commitSpeech, speakAIResponse } =
-    useHandsFreeVoice({
-      onUserSpoke: handleUserSpoke,
-      onVoiceEndTrigger: handleEndAndAnalyze,
-      silenceThresholdMs: 1800,
-    });
+  const {
+    phase,
+    interimText,
+    permissionError,
+    startHandsFree,
+    stopHandsFree,
+    commitSpeech,
+    speakAIResponse,
+  } = useHandsFreeVoice({
+    onUserSpoke: handleUserSpoke,
+    onVoiceEndTrigger: handleEndAndAnalyze,
+    silenceThresholdMs: 1800,
+  });
 
   // Start Session
-  const handleStartSession = () => {
+  const handleStartSession = async () => {
     const selectedPreset = PRESET_TOPICS.find((p) => p.topic === topic);
     const starterText =
       customTopic.trim()
@@ -253,7 +260,7 @@ export const HandsFreeScreen: React.FC<HandsFreeScreenProps> = ({
     setHasStarted(true);
 
     // Start voice loop and speak starter
-    startHandsFree();
+    await startHandsFree();
     speakAIResponse(starterText);
   };
 
@@ -613,6 +620,17 @@ export const HandsFreeScreen: React.FC<HandsFreeScreenProps> = ({
                   : 'Say "End conversation" or tap End & Analyze above to get full diagnostic.'}
               </p>
             </div>
+
+            {/* Permission Warning on Mobile */}
+            {permissionError && (
+              <div className="max-w-md mx-auto p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 text-xs text-amber-200 flex items-start gap-2 text-left">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300 block">Microphone Access Needed:</strong>
+                  {permissionError} Tap the 🔒 lock or tune icon beside the URL in your browser to allow microphone access.
+                </div>
+              </div>
+            )}
 
             {/* Interim Speech Preview & Send Now CTA */}
             {interimText && phase === 'listening' && (

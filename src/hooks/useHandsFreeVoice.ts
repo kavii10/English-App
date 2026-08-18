@@ -16,6 +16,7 @@ export function useHandsFreeVoice({
   const [phase, setPhase] = useState<VoicePhase>('idle');
   const [interimText, setInterimText] = useState<string>('');
   const [isSupported, setIsSupported] = useState<boolean>(true);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
@@ -58,6 +59,7 @@ export function useHandsFreeVoice({
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
       if (isSpeakingRef.current) return;
@@ -109,15 +111,22 @@ export function useHandsFreeVoice({
 
     recognition.onerror = (event: any) => {
       if (event.error === 'no-speech') return;
-      console.warn('Speech recognition notice:', event.error);
+      console.warn('Speech recognition notice on mobile/desktop:', event.error);
+      if (event.error === 'not-allowed') {
+        setPermissionError('Microphone access was denied. Please allow microphone in browser site settings.');
+      }
     };
 
     recognition.onend = () => {
-      // Auto-restart if still active and AI is not speaking
+      // Auto-restart if still active and AI is not speaking (Vital on Android Mobile Chrome)
       if (isRunningRef.current && !isSpeakingRef.current) {
-        try {
-          recognition.start();
-        } catch (e) {}
+        setTimeout(() => {
+          if (isRunningRef.current && !isSpeakingRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {}
+          }
+        }, 150);
       }
     };
 
@@ -131,14 +140,28 @@ export function useHandsFreeVoice({
     };
   }, [commitSpeech, silenceThresholdMs]);
 
-  // Start Hands-Free loop
-  const startHandsFree = useCallback(() => {
+  // Start Hands-Free loop with mobile mic permission pre-warm
+  const startHandsFree = useCallback(async () => {
+    setPermissionError(null);
     isRunningRef.current = true;
     isSpeakingRef.current = false;
     latestSpokenRef.current = '';
     accumulatedFinalRef.current = '';
     setInterimText('');
     setPhase('listening');
+
+    // Pre-warm mobile hardware microphone
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    } catch (err: any) {
+      console.warn('Mobile mic permission request:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setPermissionError('Please allow microphone permissions in your browser.');
+      }
+    }
 
     if (recognitionRef.current) {
       try {
@@ -232,6 +255,7 @@ export function useHandsFreeVoice({
     phase,
     interimText,
     isSupported,
+    permissionError,
     startHandsFree,
     stopHandsFree,
     commitSpeech,
