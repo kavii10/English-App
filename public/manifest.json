@@ -1,0 +1,17 @@
+{
+  "name": "SpeakWise AI — English Speaking Coach",
+  "short_name": "SpeakWise",
+  "description": "Personal AI English Speaking Coach for Spoken English Mastery",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
