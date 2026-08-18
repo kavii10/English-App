@@ -11,7 +11,7 @@ export type VoicePhase = 'idle' | 'listening' | 'processing' | 'speaking';
 export function useHandsFreeVoice({
   onUserSpoke,
   onVoiceEndTrigger,
-  silenceThresholdMs = 1900,
+  silenceThresholdMs = 1800,
 }: UseHandsFreeVoiceOptions) {
   const [phase, setPhase] = useState<VoicePhase>('idle');
   const [interimText, setInterimText] = useState<string>('');
@@ -20,10 +20,31 @@ export function useHandsFreeVoice({
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const isRunningRef = useRef<boolean>(false);
-  const currentTranscriptRef = useRef<string>('');
   const isSpeakingRef = useRef<boolean>(false);
+  const latestSpokenRef = useRef<string>('');
+  const accumulatedFinalRef = useRef<string>('');
 
-  // Initialize Speech Recognition
+  // Callbacks in refs to prevent useEffect re-binding and stale closures
+  const onUserSpokeRef = useRef(onUserSpoke);
+  onUserSpokeRef.current = onUserSpoke;
+
+  const onVoiceEndTriggerRef = useRef(onVoiceEndTrigger);
+  onVoiceEndTriggerRef.current = onVoiceEndTrigger;
+
+  // Function to commit speech
+  const commitSpeech = useCallback(() => {
+    const textToSubmit = latestSpokenRef.current.trim();
+    if (textToSubmit.length >= 2 && isRunningRef.current && !isSpeakingRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      setPhase('processing');
+      latestSpokenRef.current = '';
+      accumulatedFinalRef.current = '';
+      setInterimText('');
+      onUserSpokeRef.current(textToSubmit);
+    }
+  }, []);
+
+  // Initialize Speech Recognition once
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -54,39 +75,34 @@ export function useHandsFreeVoice({
       }
 
       if (finalChunk) {
-        currentTranscriptRef.current += finalChunk;
+        accumulatedFinalRef.current += finalChunk;
       }
 
-      const fullSpokenSoFar = (currentTranscriptRef.current + ' ' + interimChunk).trim();
+      const fullSpokenSoFar = (accumulatedFinalRef.current + ' ' + interimChunk).trim();
+      latestSpokenRef.current = fullSpokenSoFar;
       setInterimText(fullSpokenSoFar);
 
-      // Check for voice end commands
+      // Voice commands for ending session
       const lower = fullSpokenSoFar.toLowerCase();
       if (
         (lower.includes('end conversation') ||
           lower.includes('stop conversation') ||
           lower.includes('end session') ||
           lower.includes('goodbye speakwise')) &&
-        onVoiceEndTrigger
+        onVoiceEndTriggerRef.current
       ) {
         clearTimeout(silenceTimerRef.current);
-        onVoiceEndTrigger();
+        onVoiceEndTriggerRef.current();
         return;
       }
 
-      // Reset Silence Timer whenever user speaks
+      // Auto-submit after silence threshold
       if (fullSpokenSoFar.length > 0) {
         setPhase('listening');
         clearTimeout(silenceTimerRef.current);
 
         silenceTimerRef.current = setTimeout(() => {
-          const finalSpoken = (currentTranscriptRef.current + ' ' + interimChunk).trim();
-          if (finalSpoken.length > 2 && isRunningRef.current && !isSpeakingRef.current) {
-            setPhase('processing');
-            currentTranscriptRef.current = '';
-            setInterimText('');
-            onUserSpoke(finalSpoken);
-          }
+          commitSpeech();
         }, silenceThresholdMs);
       }
     };
@@ -97,13 +113,11 @@ export function useHandsFreeVoice({
     };
 
     recognition.onend = () => {
-      // Auto-restart if still running and AI is not speaking
+      // Auto-restart if still active and AI is not speaking
       if (isRunningRef.current && !isSpeakingRef.current) {
         try {
           recognition.start();
-        } catch (e) {
-          // already started
-        }
+        } catch (e) {}
       }
     };
 
@@ -115,12 +129,14 @@ export function useHandsFreeVoice({
         recognition.stop();
       } catch (e) {}
     };
-  }, [onUserSpoke, onVoiceEndTrigger, silenceThresholdMs]);
+  }, [commitSpeech, silenceThresholdMs]);
 
   // Start Hands-Free loop
   const startHandsFree = useCallback(() => {
     isRunningRef.current = true;
-    currentTranscriptRef.current = '';
+    isSpeakingRef.current = false;
+    latestSpokenRef.current = '';
+    accumulatedFinalRef.current = '';
     setInterimText('');
     setPhase('listening');
 
@@ -156,7 +172,7 @@ export function useHandsFreeVoice({
       setPhase('speaking');
       clearTimeout(silenceTimerRef.current);
 
-      // Stop recognition while AI speaks to avoid hearing self
+      // Stop recognition while AI speaks
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -169,11 +185,16 @@ export function useHandsFreeVoice({
       utterance.pitch = 1.0;
       utterance.lang = 'en-US';
 
-      // Pick high quality natural voice if available
+      // Pick natural sounding voice
       const voices = window.speechSynthesis.getVoices();
       const naturalVoice =
-        voices.find((v) => v.name.includes('Natural') || v.name.includes('Google US English') || v.name.includes('Samantha') || (v.lang === 'en-US' && v.localService)) ||
-        voices.find((v) => v.lang.startsWith('en'));
+        voices.find(
+          (v) =>
+            v.name.includes('Natural') ||
+            v.name.includes('Google US English') ||
+            v.name.includes('Samantha') ||
+            (v.lang === 'en-US' && v.localService)
+        ) || voices.find((v) => v.lang.startsWith('en'));
       if (naturalVoice) {
         utterance.voice = naturalVoice;
       }
@@ -182,7 +203,7 @@ export function useHandsFreeVoice({
         isSpeakingRef.current = false;
         if (onDone) onDone();
 
-        // Restart recognition after AI finishes
+        // Restart listening after AI completes
         if (isRunningRef.current) {
           setPhase('listening');
           setTimeout(() => {
@@ -213,6 +234,7 @@ export function useHandsFreeVoice({
     isSupported,
     startHandsFree,
     stopHandsFree,
+    commitSpeech,
     speakAIResponse,
   };
 }
