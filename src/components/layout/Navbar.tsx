@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Flame, Moon, Sun, Settings, Mic, BookOpen, BarChart3, MessageSquare, Headphones, User } from 'lucide-react';
+import { Moon, Sun, Settings, Mic, Sparkles, MessageSquare, Headphones, BookOpen, BarChart3 } from 'lucide-react';
 import { UserProfile } from '../../types';
 
 interface NavbarProps {
@@ -9,7 +9,6 @@ interface NavbarProps {
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   onOpenSettings: () => void;
-  onOpenAuth: () => void;
   onStartSpeaking: () => void;
 }
 
@@ -20,7 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   theme,
   toggleTheme,
   onOpenSettings,
-  onOpenAuth,
   onStartSpeaking,
 }) => {
   return (
@@ -32,15 +30,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Mic className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-                SpeakWise
-              </span>
-              <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                AI Coach
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Personal Spoken English Coach</p>
+            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+              SpeakWise
+            </span>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Personal English Coach</p>
           </div>
         </div>
 
@@ -107,27 +100,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Right side stats & actions */}
+        {/* Right Side Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Speaking Streak (Hidden on mobile to keep top alignment compact) */}
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold shadow-sm">
-            <Flame className="w-4 h-4 text-amber-500" />
-            <span>{user?.streak ?? 0}d Streak</span>
-          </div>
-
-          {/* User Account / Sign In */}
-          <button
-            onClick={onOpenAuth}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-colors"
-            title={user?.email ? `Signed in as ${user.email}` : 'Sign In / Connect Account'}
-          >
-            <User className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden sm:inline-block max-w-[100px] truncate">
-              {user?.name || 'Sign In'}
-            </span>
-          </button>
-
-          {/* Speak CTA Button */}
+          {/* Quick Speak CTA */}
           {activeTab !== 'speaking' && (
             <button
               onClick={onStartSpeaking}
@@ -151,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onOpenSettings}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 transition-colors border border-transparent hover:border-slate-700"
-            title="Settings & API Key"
+            title="Settings & Account"
           >
             <Settings className="w-4 h-4" />
           </button>

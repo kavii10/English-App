@@ -11,23 +11,34 @@ import {
   Sparkles,
   Sliders,
   Shield,
+  User,
+  LogIn,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis';
 import { useAudioVisualizer } from '../../hooks/useAudioVisualizer';
 import { api } from '../../services/api';
 import { useToast } from '../common/Toast';
+import { UserProfile } from '../../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDataReset: () => void;
+  user: UserProfile | null;
+  onOpenAuth: () => void;
+  onLogout: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onDataReset,
+  user,
+  onOpenAuth,
+  onLogout,
 }) => {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -92,7 +103,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleClearHistory = async () => {
     if (!window.confirm('Are you sure you want to clear all conversation history?')) return;
     try {
-      await api.clearConversationHistory();
+      const activeUserId = user?.id || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      await api.clearConversationHistory(activeUserId);
       showToast('Speaking history cleared', 'info');
       onDataReset();
     } catch (err) {
@@ -103,7 +115,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleResetMistakes = async () => {
     if (!window.confirm('Are you sure you want to reset weakness tracking?')) return;
     try {
-      await api.resetMistakes();
+      const activeUserId = user?.id || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      await api.resetMistakes(activeUserId);
       showToast('Weakness tracking reset', 'info');
       onDataReset();
     } catch (err) {
@@ -114,7 +127,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleResetFlashcards = async () => {
     if (!window.confirm('Are you sure you want to reset vocabulary flashcards progress?')) return;
     try {
-      await api.resetFlashcards();
+      const activeUserId = user?.id || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      await api.resetFlashcards(activeUserId);
       showToast('Flashcard progress reset', 'info');
       onDataReset();
     } catch (err) {
@@ -124,7 +138,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleExportData = async () => {
     try {
-      const data = await api.exportLearningData();
+      const activeUserId = user?.id || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      const data = await api.exportLearningData(activeUserId);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -141,8 +156,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings & Preferences" maxWidth="2xl">
       <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
-        {/* 1. Google Gemini API Key Setup */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-indigo-500/30 space-y-3">
+        {/* 1. Account & Profile / Cloud Sync Section */}
+        <div className="bg-slate-950 p-5 rounded-2xl border border-indigo-500/30 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <User className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-sm font-extrabold text-white">Account & Cloud Sync</h3>
+            </div>
+            {user?.email ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Cloud Synced</span>
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                Guest Mode
+              </span>
+            )}
+          </div>
+
+          {user?.email ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/20">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-white">{user.name}</div>
+                <div className="text-[11px] text-slate-400 font-mono">{user.email}</div>
+                <div className="text-[10px] text-indigo-400 font-semibold pt-0.5">
+                  Level: {user.level || 'Intermediate'} • Streak: {user.streak ?? 0} days
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenAuth();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold border border-slate-700 transition-colors"
+                >
+                  Edit Profile
+                </button>
+                <button
+                  onClick={() => {
+                    onLogout();
+                    showToast('Logged out successfully', 'info');
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-white">Sign In to Save Your Progress</div>
+                <p className="text-[11px] text-slate-400">
+                  Sync all your speaking diagnostics, vocabulary cards, and streaks to Supabase cloud.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenAuth();
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-md transition-all shrink-0"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In / Register</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 2. Google Gemini API Key Setup */}
+        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Key className="w-5 h-5 text-indigo-400" />
@@ -156,13 +245,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             ) : (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                <span>Default / Offline Engine Active</span>
+                <span>Default / Cloud Engine Active</span>
               </span>
             )}
           </div>
 
           <p className="text-xs text-slate-400">
-            Enter your Google AI Studio Gemini API Key for high-speed AI speaking analysis. (The key is stored safely in your local session/backend and never exposed).
+            Enter your Google AI Studio Gemini API Key for high-speed AI speaking analysis. (The key is stored safely in your backend and never exposed).
           </p>
 
           <div className="flex gap-2">
@@ -187,7 +276,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {/* 2. AI Voice & TTS Tuning */}
+        {/* 3. AI Voice & TTS Tuning */}
         <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
           <div className="flex items-center gap-2">
             <Volume2 className="w-5 h-5 text-purple-400" />
@@ -200,10 +289,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <select
                 value={selectedVoice?.name || ''}
                 onChange={(e) => {
-                  const v = voices.find((voice) => voice.name === e.target.value);
-                  if (v) setSelectedVoice(v);
+                  const v = voices.find((item) => item.name === e.target.value);
+                  setSelectedVoice(v || null);
                 }}
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
               >
                 {voices
                   .filter((v) => v.lang.startsWith('en'))
@@ -218,12 +307,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div>
                 <div className="flex justify-between text-slate-400 mb-1">
-                  <span>Speaking Rate:</span>
-                  <span className="font-bold text-white">{rate}x</span>
+                  <span>Speaking Rate</span>
+                  <span className="font-mono">{rate}x</span>
                 </div>
                 <input
                   type="range"
-                  min="0.7"
+                  min="0.75"
                   max="1.3"
                   step="0.05"
                   value={rate}
@@ -234,8 +323,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <div>
                 <div className="flex justify-between text-slate-400 mb-1">
-                  <span>Pitch:</span>
-                  <span className="font-bold text-white">{pitch}</span>
+                  <span>Pitch</span>
+                  <span className="font-mono">{pitch}x</span>
                 </div>
                 <input
                   type="range"
@@ -250,95 +339,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <button
-              onClick={() => speak('Hello! This is SpeakWise AI, your personal English speaking coach.')}
-              className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-1.5"
+              onClick={() => speak('Hello! Great to practice spoken English with you today.')}
+              className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200"
             >
-              <Volume2 className="w-3.5 h-3.5" />
-              <span>Test Voice Preview</span>
+              🔊 Test AI Voice
             </button>
           </div>
         </div>
 
-        {/* 3. Microphone Hardware & Permission Test */}
+        {/* 4. Microphone Input Diagnostic */}
         <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Mic className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-sm font-extrabold text-white">Microphone Input Level Test</h3>
-            </div>
+          <div className="flex items-center gap-2">
+            <Mic className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-sm font-extrabold text-white">Microphone Diagnostic</h3>
+          </div>
+
+          <p className="text-xs text-slate-400">
+            Speak into your microphone to verify that audio frequencies and volume levels are detected properly.
+          </p>
+
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsTestingMic(!isTestingMic)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 isTestingMic
-                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800'
               }`}
             >
-              {isTestingMic ? 'Stop Test' : 'Test Microphone'}
+              {isTestingMic ? 'Stop Test' : 'Test Microphone Live'}
             </button>
-          </div>
 
-          <p className="text-xs text-slate-400">
-            Speak a sentence into your microphone to verify audio capture sensitivity.
-          </p>
-
-          {isTestingMic && (
-            <div className="space-y-2 pt-2 animate-fadeIn">
-              <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            {isTestingMic && (
+              <div className="flex-1 bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-700">
                 <div
-                  className="h-full bg-gradient-to-r from-emerald-500 via-indigo-500 to-rose-500 transition-all duration-75"
-                  style={{ width: `${Math.min(100, audioLevel * 250)}%` }}
+                  className="bg-emerald-500 h-full transition-all duration-75"
+                  style={{ width: `${Math.min(100, audioLevel * 2.5)}%` }}
                 />
               </div>
-              <div className="text-[10px] text-center text-slate-400 font-mono">
-                Input Level: {Math.round(audioLevel * 100)}%
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* 4. Privacy & Data Management */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-sm font-extrabold text-white">Privacy & Learning Data</h3>
+        {/* 5. Data Privacy & Reset Controls */}
+        <div className="bg-slate-950 p-5 rounded-2xl border border-rose-500/20 space-y-3">
+          <div className="flex items-center gap-2 text-rose-400">
+            <Shield className="w-5 h-5" />
+            <h3 className="text-sm font-extrabold">Data Privacy & Management</h3>
           </div>
 
           <p className="text-xs text-slate-400">
-            Your conversations and speaking transcripts are stored locally in your private database. You can export or clear your data at any time.
+            Export your learning progress or reset history anytime. All your learning data is 100% under your control.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
             <button
               onClick={handleExportData}
-              className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold border border-slate-800 flex items-center justify-center gap-2 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4 text-indigo-400" />
-              <span>Export Learning Data (.json)</span>
+              <span>Export Learning JSON</span>
             </button>
 
             <button
               onClick={handleClearHistory}
-              className="p-3 rounded-xl bg-slate-900 hover:bg-rose-950/40 text-rose-300 text-xs font-bold border border-slate-800 hover:border-rose-500/30 flex items-center justify-center gap-2 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-500/30 text-rose-300 font-bold flex items-center justify-center gap-2"
             >
-              <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Clear Conversation History</span>
+              <Trash2 className="w-4 h-4" />
+              <span>Clear History</span>
             </button>
 
             <button
               onClick={handleResetMistakes}
-              className="p-3 rounded-xl bg-slate-900 hover:bg-amber-950/40 text-amber-300 text-xs font-bold border border-slate-800 hover:border-amber-500/30 flex items-center justify-center gap-2 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4 text-amber-400" />
-              <span>Reset Weakness Catalog</span>
+              <span>Reset Weaknesses</span>
             </button>
 
             <button
               onClick={handleResetFlashcards}
-              className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 flex items-center justify-center gap-2 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4 text-purple-400" />
-              <span>Reset Flashcard SRS Stats</span>
+              <span>Reset Flashcards</span>
             </button>
           </div>
         </div>

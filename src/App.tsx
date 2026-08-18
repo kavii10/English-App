@@ -83,7 +83,6 @@ export function App() {
           theme={theme}
           toggleTheme={toggleTheme}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenAuth={() => setIsAuthOpen(true)}
           onStartSpeaking={() => setActiveTab('speaking')}
         />
 
@@ -130,6 +129,7 @@ export function App() {
           {activeTab === 'vocabulary' && (
             <VocabularyScreen
               todayVocab={todayVocab}
+              userId={user?.id}
               onRefreshTodayVocab={() => loadAllData(user?.id)}
             />
           )}
@@ -163,6 +163,9 @@ export function App() {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           onDataReset={() => loadAllData(user?.id)}
+          user={user}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Spaced Repetition Review Modal */}

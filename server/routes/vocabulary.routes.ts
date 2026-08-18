@@ -72,6 +72,7 @@ router.get('/today', (req, res) => {
 router.post('/generate-more', async (req, res) => {
   try {
     const userId = req.body.userId || 'usr_default';
+    ensureUserExists(userId);
     const category = req.body.category || 'Communication';
     const difficulty = req.body.difficulty || 'Intermediate';
 

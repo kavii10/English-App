@@ -22,11 +22,13 @@ import { api } from '../../services/api';
 
 interface VocabularyScreenProps {
   todayVocab: VocabularyItem[];
+  userId?: string;
   onRefreshTodayVocab: () => void;
 }
 
 export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
   todayVocab,
+  userId,
   onRefreshTodayVocab,
 }) => {
   const [activeTab, setActiveTab] = useState<'today' | 'all'>('today');
@@ -43,7 +45,8 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
   const loadFlashcards = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getFlashcards(filter, search);
+      const activeUserId = userId || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      const res = await api.getFlashcards(filter, search, activeUserId);
       setFlashcards(res.flashcards || []);
     } catch (err) {
       console.error('Error loading flashcards:', err);
@@ -54,13 +57,14 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
 
   useEffect(() => {
     loadFlashcards();
-  }, [filter, search]);
+  }, [filter, search, userId]);
 
   const handleGenerateMore = async () => {
     setIsGenerating(true);
     setGenerationNotice(null);
     try {
-      const res = await api.generateMoreVocabulary();
+      const activeUserId = userId || localStorage.getItem('speakwise_user_id') || 'usr_default';
+      const res = await api.generateMoreVocabulary({ userId: activeUserId });
       if (res.success) {
         confetti({
           particleCount: 50,

@@ -844,8 +844,90 @@ Return STRICT JSON matching this schema:
 
     return items;
   } catch (error) {
-    console.error('Error generating vocabulary with Gemini:', error);
-    return [];
+    console.error('Error generating vocabulary with Gemini, using curated high-impact vocabulary fallback:', error);
+    const fallbackPool: Array<Omit<GeneratedVocabItem, 'id'>> = [
+      {
+        word: 'streamline',
+        pronunciation: '/ˈstriːm.laɪn/',
+        part_of_speech: 'verb',
+        simple_meaning: 'To make a system, process, or workflow simpler, faster, and more efficient.',
+        contextual_meaning: 'Used frequently in startups and meetings to describe removing unnecessary steps.',
+        example_sentence: 'We need to streamline our onboarding process to help new users get started faster.',
+        synonyms: ['simplify', 'optimize', 'clarify'],
+        antonyms: ['complicate', 'delay'],
+        difficulty: 'Intermediate',
+        category: 'Career',
+      },
+      {
+        word: 'articulate',
+        pronunciation: '/ɑːˈtɪk.jə.lət/',
+        part_of_speech: 'adjective',
+        simple_meaning: 'Able to express thoughts, arguments, and ideas clearly and effectively in speech.',
+        contextual_meaning: 'A high-praise adjective for founders, leaders, and confident speakers.',
+        example_sentence: 'She gave an articulate presentation that convinced all the stakeholders.',
+        synonyms: ['fluent', 'eloquent', 'persuasive'],
+        antonyms: ['unclear', 'hesitant'],
+        difficulty: 'Advanced',
+        category: 'Communication',
+      },
+      {
+        word: 'pragmatic',
+        pronunciation: '/præɡˈmæt.ɪk/',
+        part_of_speech: 'adjective',
+        simple_meaning: 'Dealing with situations sensibly and realistically based on practical results rather than theory.',
+        contextual_meaning: 'Essential for discussing decisions, product roadmaps, and problem solving.',
+        example_sentence: 'Taking a pragmatic approach helped us ship the MVP on time.',
+        synonyms: ['practical', 'realistic', 'sensible'],
+        antonyms: ['idealistic', 'impractical'],
+        difficulty: 'Advanced',
+        category: 'Career',
+      },
+      {
+        word: 'leverage',
+        pronunciation: '/ˈlev.ər.ɪdʒ/',
+        part_of_speech: 'verb',
+        simple_meaning: 'To use something to maximum advantage.',
+        contextual_meaning: 'Everyday executive and professional verb for utilizing resources, tools, or strengths.',
+        example_sentence: 'We can leverage our existing audience to test this new product concept.',
+        synonyms: ['utilize', 'capitalize on', 'exploit'],
+        antonyms: ['waste', 'ignore'],
+        difficulty: 'Intermediate',
+        category: 'Career',
+      },
+      {
+        word: 'resilient',
+        pronunciation: '/rɪˈzɪl.jənt/',
+        part_of_speech: 'adjective',
+        simple_meaning: 'Able to withstand or recover quickly from difficult conditions or failures.',
+        contextual_meaning: 'Key term for personal growth, leadership, and startup persistence.',
+        example_sentence: 'A resilient founder learns from every setback and keeps building.',
+        synonyms: ['adaptable', 'tough', 'enduring'],
+        antonyms: ['fragile', 'vulnerable'],
+        difficulty: 'Intermediate',
+        category: 'Communication',
+      },
+      {
+        word: 'synthesize',
+        pronunciation: '/ˈsɪn.θə.saɪz/',
+        part_of_speech: 'verb',
+        simple_meaning: 'To combine complex pieces of information into a clear, unified summary.',
+        contextual_meaning: 'Used when summarizing meetings, customer interviews, and research findings.',
+        example_sentence: 'Let me synthesize the three main points discussed in today meeting.',
+        synonyms: ['integrate', 'summarize', 'unify'],
+        antonyms: ['separate', 'dissect'],
+        difficulty: 'Advanced',
+        category: 'Communication',
+      },
+    ];
+
+    const existingSet = new Set(existingWords.map((w) => w.toLowerCase()));
+    const freshWords = fallbackPool.filter((w) => !existingSet.has(w.word.toLowerCase()));
+    const selected = freshWords.length >= 3 ? freshWords.slice(0, 5) : fallbackPool.slice(0, 5);
+
+    return selected.map((w) => ({
+      ...w,
+      id: `vocab-${w.word.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    }));
   }
 }
 
