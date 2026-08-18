@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Flame, Moon, Sun, Settings, Mic, BookOpen, BarChart3, MessageSquare } from 'lucide-react';
+import { Sparkles, Flame, Moon, Sun, Settings, Mic, BookOpen, BarChart3, MessageSquare, User } from 'lucide-react';
 import { UserProfile } from '../../types';
 
 interface NavbarProps {
@@ -9,6 +9,7 @@ interface NavbarProps {
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   onOpenSettings: () => void;
+  onOpenAuth: () => void;
   onStartSpeaking: () => void;
 }
 
@@ -19,6 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   theme,
   toggleTheme,
   onOpenSettings,
+  onOpenAuth,
   onStartSpeaking,
 }) => {
   return (
@@ -43,50 +45,53 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+        <nav className="hidden md:flex items-center gap-1 bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'dashboard'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Home
+            <span>Dashboard</span>
           </button>
+
           <button
             onClick={() => setActiveTab('speaking')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'speaking'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            Speaking Practice
+            <span>Practice</span>
           </button>
+
           <button
             onClick={() => setActiveTab('vocabulary')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'vocabulary'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            Vocabulary & Cards
+            <span>Vocabulary</span>
           </button>
+
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'analytics'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
-            Analytics
+            <span>Progress</span>
           </button>
         </nav>
 
@@ -98,10 +103,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{user?.streak ?? 0}d Streak</span>
           </div>
 
-          {/* Level badge */}
-          <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">
-            {user?.level || 'Intermediate'}
-          </div>
+          {/* User Account / Sign In */}
+          <button
+            onClick={onOpenAuth}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+            title={user?.email ? `Signed in as ${user.email}` : 'Sign In / Connect Account'}
+          >
+            <User className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline-block max-w-[100px] truncate">
+              {user?.name || 'Sign In'}
+            </span>
+          </button>
 
           {/* Speak CTA Button */}
           {activeTab !== 'speaking' && (

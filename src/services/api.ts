@@ -164,7 +164,14 @@ export const api = {
     return fetchJson<any>(`${API_BASE}/analytics/vocab-mastery?userId=${userId}`);
   },
 
-  // User & Settings
+  // User & Auth
+  async loginOrRegister(data: { name?: string; email: string; level?: string }): Promise<{ success: boolean; user: UserProfile; message: string }> {
+    return fetchJson<{ success: boolean; user: UserProfile; message: string }>(`${API_BASE}/user/auth`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   async getUserProfile(userId: string = 'usr_default'): Promise<{ user: UserProfile }> {
     return fetchJson<{ user: UserProfile }>(`${API_BASE}/user/profile?userId=${userId}`);
   },

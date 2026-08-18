@@ -6,6 +6,7 @@ import { SpeakingScreen } from './components/speaking/SpeakingScreen';
 import { VocabularyScreen } from './components/vocabulary/VocabularyScreen';
 import { AnalyticsScreen } from './components/analytics/AnalyticsScreen';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { AuthModal } from './components/auth/AuthModal';
 import { FlashcardReviewModal } from './components/vocabulary/FlashcardReviewModal';
 import { ToastProvider } from './components/common/Toast';
 import { useTheme } from './hooks/useTheme';
@@ -23,19 +24,22 @@ export function App() {
 
   // Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isReviewOpen, setIsReviewOpen] = useState<boolean>(false);
 
   const { theme, toggleTheme } = useTheme();
 
-  const loadAllData = useCallback(async () => {
+  const loadAllData = useCallback(async (targetUserId?: string) => {
     try {
+      const activeId = targetUserId || localStorage.getItem('speakwise_user_id') || 'usr_default';
+
       const [userRes, missionRes, analyticsRes, vocabRes, sessionsRes, flashcardsRes] = await Promise.all([
-        api.getUserProfile(),
-        api.getTodayMission(),
-        api.getAnalyticsOverview(),
-        api.getTodayVocabulary(),
-        api.getRecentSessions('usr_default', 6),
-        api.getFlashcards('All'),
+        api.getUserProfile(activeId),
+        api.getTodayMission(activeId),
+        api.getAnalyticsOverview(activeId),
+        api.getTodayVocabulary(activeId),
+        api.getRecentSessions(activeId, 6),
+        api.getFlashcards('All', '', activeId),
       ]);
 
       setUser(userRes.user);
@@ -45,13 +49,19 @@ export function App() {
       setRecentSessions(sessionsRes.sessions || []);
       setAllFlashcards(flashcardsRes.flashcards || []);
     } catch (err) {
-      console.error('Error loading initial app data:', err);
+      console.error('Error loading app data:', err);
     }
   }, []);
 
   useEffect(() => {
-    loadAllData();
+    const savedUserId = localStorage.getItem('speakwise_user_id');
+    loadAllData(savedUserId || undefined);
   }, [loadAllData]);
+
+  const handleLoginSuccess = (loggedInUser: UserProfile) => {
+    setUser(loggedInUser);
+    loadAllData(loggedInUser.id);
+  };
 
   return (
     <ToastProvider>
@@ -64,6 +74,7 @@ export function App() {
           theme={theme}
           toggleTheme={toggleTheme}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
           onStartSpeaking={() => setActiveTab('speaking')}
         />
 
@@ -84,13 +95,13 @@ export function App() {
 
           {activeTab === 'speaking' && (
             <SpeakingScreen
-              initialTopic={mission?.topic || 'College Life & Personal Goals'}
+              initialTopic={mission?.topic || 'Introduce Yourself & Share Your Daily Goals'}
               onSessionEnded={() => {
-                loadAllData();
+                loadAllData(user?.id);
                 setActiveTab('dashboard');
               }}
               onNavigateToVocab={() => {
-                loadAllData();
+                loadAllData(user?.id);
                 setActiveTab('vocabulary');
               }}
             />
@@ -99,7 +110,7 @@ export function App() {
           {activeTab === 'vocabulary' && (
             <VocabularyScreen
               todayVocab={todayVocab}
-              onRefreshTodayVocab={loadAllData}
+              onRefreshTodayVocab={() => loadAllData(user?.id)}
             />
           )}
 
@@ -118,11 +129,19 @@ export function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
+        {/* Auth / Account Modal */}
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onLoginSuccess={handleLoginSuccess}
+          currentUser={user}
+        />
+
         {/* Global Settings Modal */}
         <SettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
-          onDataReset={loadAllData}
+          onDataReset={() => loadAllData(user?.id)}
         />
 
         {/* Spaced Repetition Review Modal */}
@@ -131,7 +150,7 @@ export function App() {
             isOpen={isReviewOpen}
             onClose={() => setIsReviewOpen(false)}
             flashcards={allFlashcards}
-            onReviewComplete={loadAllData}
+            onReviewComplete={() => loadAllData(user?.id)}
           />
         )}
       </div>

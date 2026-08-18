@@ -1,4 +1,5 @@
 import { db } from '../db/database.js';
+import { syncMistakeToSupabase } from '../db/supabase.js';
 
 export interface UserMistakeSummary {
   category: string;
@@ -138,11 +139,33 @@ export function recordUserMistake(
       SET frequency = frequency + 1, last_seen = ?
       WHERE id = ?
     `).run(now, existing.id);
+
+    syncMistakeToSupabase({
+      id: existing.id,
+      user_id: userId,
+      category,
+      mistake,
+      correction,
+      explanation,
+      frequency: existing.frequency + 1,
+      last_seen: now,
+    });
   } else {
     const id = `mstk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     db.prepare(`
       INSERT INTO user_mistakes (id, user_id, category, mistake, correction, explanation, frequency, last_seen)
       VALUES (?, ?, ?, ?, ?, ?, 1, ?)
     `).run(id, userId, category, mistake, correction, explanation, now);
+
+    syncMistakeToSupabase({
+      id,
+      user_id: userId,
+      category,
+      mistake,
+      correction,
+      explanation,
+      frequency: 1,
+      last_seen: now,
+    });
   }
 }

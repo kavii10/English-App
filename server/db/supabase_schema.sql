@@ -1,21 +1,21 @@
--- Supabase PostgreSQL Schema for SpeakWise AI
+-- Supabase PostgreSQL Schema with Open RLS Policies for SpeakWise AI
 
--- Users Table
+-- 1. Create Users Table
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL DEFAULT 'Learner',
   email TEXT,
   level TEXT NOT NULL DEFAULT 'Intermediate',
   target_daily_minutes INTEGER NOT NULL DEFAULT 5,
-  streak INTEGER NOT NULL DEFAULT 7,
+  streak INTEGER NOT NULL DEFAULT 0,
   last_active_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Speaking Sessions Table
+-- 2. Create Speaking Sessions Table
 CREATE TABLE IF NOT EXISTS public.speaking_sessions (
   id TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id TEXT,
   topic TEXT NOT NULL,
   difficulty TEXT NOT NULL DEFAULT 'Intermediate',
   duration_seconds INTEGER NOT NULL DEFAULT 0,
@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS public.speaking_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Speaking Responses Table
+-- 3. Create Speaking Responses Table
 CREATE TABLE IF NOT EXISTS public.speaking_responses (
   id TEXT PRIMARY KEY,
-  session_id TEXT REFERENCES public.speaking_sessions(id) ON DELETE CASCADE,
+  session_id TEXT,
   turn_number INTEGER NOT NULL,
   ai_prompt TEXT NOT NULL,
   user_transcript TEXT NOT NULL,
@@ -46,10 +46,10 @@ CREATE TABLE IF NOT EXISTS public.speaking_responses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Sentence Improvements Table
+-- 4. Create Sentence Improvements Table
 CREATE TABLE IF NOT EXISTS public.sentence_improvements (
   id TEXT PRIMARY KEY,
-  response_id TEXT REFERENCES public.speaking_responses(id) ON DELETE CASCADE,
+  response_id TEXT,
   original_sentence TEXT NOT NULL,
   corrected_sentence TEXT NOT NULL,
   natural_sentence TEXT NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.sentence_improvements (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Vocabulary Table
+-- 5. Create Vocabulary Table
 CREATE TABLE IF NOT EXISTS public.vocabulary (
   id TEXT PRIMARY KEY,
   word TEXT NOT NULL UNIQUE,
@@ -74,11 +74,11 @@ CREATE TABLE IF NOT EXISTS public.vocabulary (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- User Flashcards Table
+-- 6. Create User Flashcards Table
 CREATE TABLE IF NOT EXISTS public.user_flashcards (
   id TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
-  vocabulary_id TEXT REFERENCES public.vocabulary(id) ON DELETE CASCADE,
+  user_id TEXT,
+  vocabulary_id TEXT,
   mastery_score NUMERIC NOT NULL DEFAULT 0,
   review_count INTEGER NOT NULL DEFAULT 0,
   correct_count INTEGER NOT NULL DEFAULT 0,
@@ -94,10 +94,10 @@ CREATE TABLE IF NOT EXISTS public.user_flashcards (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- User Mistakes Table
+-- 7. Create User Mistakes Table
 CREATE TABLE IF NOT EXISTS public.user_mistakes (
   id TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id TEXT,
   category TEXT NOT NULL,
   mistake TEXT NOT NULL,
   correction TEXT NOT NULL,
@@ -106,10 +106,10 @@ CREATE TABLE IF NOT EXISTS public.user_mistakes (
   last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Daily Missions Table
+-- 8. Create Daily Missions Table
 CREATE TABLE IF NOT EXISTS public.daily_missions (
   id TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id TEXT,
   mission_date DATE NOT NULL,
   title TEXT NOT NULL,
   topic TEXT NOT NULL,
@@ -119,3 +119,13 @@ CREATE TABLE IF NOT EXISTS public.daily_missions (
   score NUMERIC,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- DISABLE ROW LEVEL SECURITY (or enable public access) so anon client key can store data safely:
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.speaking_sessions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.speaking_responses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sentence_improvements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vocabulary DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_flashcards DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_mistakes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_missions DISABLE ROW LEVEL SECURITY;
