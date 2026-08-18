@@ -4,6 +4,8 @@ import {
   generateConversationStarter,
   analyzeUserResponse,
   compareSpokenRepeatAttempt,
+  generateHandsFreeFriendReply,
+  analyzeEntireHandsFreeSession,
 } from '../services/gemini.js';
 import { getUserWeaknessProfile } from '../services/weakness.js';
 import { calculateOverallScore } from '../services/scoring.js';
@@ -465,6 +467,102 @@ router.delete('/sessions/:id', (req, res) => {
     db.prepare('DELETE FROM speaking_sessions WHERE id = ?').run(id);
     res.json({ success: true, message: 'Session deleted successfully.' });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/conversation/hands-free/reply
+ * Real-time fast conversational reply for hands-free voice loop
+ */
+router.post('/hands-free/reply', async (req, res) => {
+  try {
+    const { topic, dialogue, difficulty = 'Intermediate' } = req.body;
+    const reply = await generateHandsFreeFriendReply({
+      topic: topic || 'Casual English Conversation',
+      dialogue: dialogue || [],
+      difficulty,
+    });
+    res.json({ reply });
+  } catch (error: any) {
+    console.error('Hands-free reply error:', error);
+    res.status(500).json({ error: error.message, reply: "I hear you! What are your thoughts on where to take this next?" });
+  }
+});
+
+/**
+ * POST /api/conversation/hands-free/analyze
+ * Comprehensive diagnostic analysis after ending a hands-free conversation
+ */
+router.post('/hands-free/analyze', async (req, res) => {
+  try {
+    const {
+      topic = 'Casual English Conversation',
+      dialogue = [],
+      durationSeconds = 60,
+      userId = 'usr_default',
+    } = req.body;
+
+    const diagnostic = await analyzeEntireHandsFreeSession({
+      topic,
+      dialogue,
+      durationSeconds,
+      userId,
+    });
+
+    const sessionId = `hf_sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // Save session to SQLite
+    db.prepare(`
+      INSERT INTO speaking_sessions (
+        id, user_id, topic, difficulty, duration_seconds, overall_score,
+        grammar_score, vocabulary_score, fluency_score, naturalness_score,
+        sentence_score, target_vocab_used_count, sentences_improved_count,
+        filler_words_count, strengths_json, improvements_json, tomorrows_focus
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      sessionId,
+      userId,
+      topic,
+      'Hands-Free',
+      durationSeconds,
+      diagnostic.overallScore,
+      diagnostic.scores.grammar,
+      diagnostic.scores.vocabulary,
+      diagnostic.scores.fluency,
+      diagnostic.scores.naturalness,
+      diagnostic.scores.executive_presence,
+      diagnostic.founderPowerWordsUsed.length,
+      diagnostic.sayItBetterUpgrades.length,
+      diagnostic.fillerAnalysis.totalCount,
+      JSON.stringify(diagnostic.strengths),
+      JSON.stringify(diagnostic.improvements),
+      diagnostic.tomorrowsFocus
+    );
+
+    // Update user streak & sync to Supabase
+    db.prepare(`
+      UPDATE users
+      SET streak = streak + 1, last_active_date = DATE('now')
+      WHERE id = ?
+    `).run(userId);
+
+    const savedSession = db.prepare('SELECT * FROM speaking_sessions WHERE id = ?').get(sessionId) as any;
+    if (savedSession) {
+      syncSessionToSupabase(savedSession);
+    }
+
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    if (updatedUser) {
+      syncUserToSupabase(updatedUser);
+    }
+
+    res.json({
+      sessionId,
+      diagnostic,
+    });
+  } catch (error: any) {
+    console.error('Hands-free analysis error:', error);
     res.status(500).json({ error: error.message });
   }
 });

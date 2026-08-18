@@ -7,6 +7,7 @@ import {
   SpeakingSessionSummary,
   DailyMission,
   AnalyticsOverview,
+  HandsFreeMasterDiagnostic,
 } from '../types';
 
 const API_BASE = '/api';
@@ -218,5 +219,29 @@ export const api = {
 
   async exportLearningData(userId: string = 'usr_default'): Promise<any> {
     return fetchJson<any>(`${API_BASE}/user/privacy/export?userId=${userId}`);
+  },
+
+  // Hands-Free Continuous Voice Flow
+  async getHandsFreeReply(params: {
+    topic: string;
+    dialogue: Array<{ speaker: 'user' | 'ai'; text: string }>;
+    difficulty?: string;
+  }): Promise<{ reply: string }> {
+    return fetchJson(`${API_BASE}/conversation/hands-free/reply`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  async analyzeHandsFreeSession(params: {
+    topic: string;
+    dialogue: Array<{ speaker: 'user' | 'ai'; text: string }>;
+    durationSeconds: number;
+    userId?: string;
+  }): Promise<{ sessionId: string; diagnostic: HandsFreeMasterDiagnostic }> {
+    return fetchJson(`${API_BASE}/conversation/hands-free/analyze`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   },
 };

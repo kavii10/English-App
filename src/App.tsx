@@ -3,6 +3,7 @@ import { Navbar } from './components/layout/Navbar';
 import { MobileTabBar } from './components/layout/Sidebar';
 import { DashboardScreen } from './components/dashboard/DashboardScreen';
 import { SpeakingScreen } from './components/speaking/SpeakingScreen';
+import { HandsFreeScreen } from './components/handsfree/HandsFreeScreen';
 import { VocabularyScreen } from './components/vocabulary/VocabularyScreen';
 import { AnalyticsScreen } from './components/analytics/AnalyticsScreen';
 import { SettingsModal } from './components/settings/SettingsModal';
@@ -63,6 +64,14 @@ export function App() {
     loadAllData(loggedInUser.id);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('speakwise_user_id');
+    localStorage.removeItem('speakwise_user_email');
+    localStorage.removeItem('speakwise_user_name');
+    setUser(null);
+    loadAllData('usr_default');
+  };
+
   return (
     <ToastProvider>
       <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 transition-colors duration-300">
@@ -108,6 +117,16 @@ export function App() {
             />
           )}
 
+          {activeTab === 'hands-free' && (
+            <HandsFreeScreen
+              userId={user?.id}
+              onSessionEnded={() => {
+                loadAllData(user?.id);
+                setActiveTab('dashboard');
+              }}
+            />
+          )}
+
           {activeTab === 'vocabulary' && (
             <VocabularyScreen
               todayVocab={todayVocab}
@@ -135,6 +154,7 @@ export function App() {
           isOpen={isAuthOpen}
           onClose={() => setIsAuthOpen(false)}
           onLoginSuccess={handleLoginSuccess}
+          onLogout={handleLogout}
           currentUser={user}
         />
 

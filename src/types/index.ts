@@ -231,3 +231,42 @@ export interface AnalyticsOverview {
     }>;
   };
 }
+
+export interface HandsFreeMasterDiagnostic {
+  topic: string;
+  durationSeconds: number;
+  totalTurns: number;
+  totalUserWords: number;
+  overallScore: number;
+  scores: {
+    grammar: number;
+    vocabulary: number;
+    fluency: number;
+    naturalness: number;
+    executive_presence: number;
+  };
+  allGrammarErrors: Array<{
+    category: string;
+    mistake: string;
+    correction: string;
+    explanation: string;
+    userQuote: string;
+  }>;
+  fillerAnalysis: {
+    totalCount: number;
+    fillers: Array<{ word: string; count: number }>;
+    advice: string;
+  };
+  founderPowerWordsUsed: string[];
+  sayItBetterUpgrades: Array<{
+    original: string;
+    corrected: string;
+    natural: string;
+    advanced: string;
+    explanation: string;
+  }>;
+  strengths: string[];
+  improvements: string[];
+  tomorrowsFocus: string;
+  encouragement: string;
+}

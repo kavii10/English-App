@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, MessageSquare, BookOpen, BarChart3, Settings } from 'lucide-react';
+import { Sparkles, MessageSquare, Headphones, BookOpen, BarChart3, Settings } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -14,10 +14,10 @@ export const MobileTabBar: React.FC<SidebarProps> = ({
 }) => {
   const tabs = [
     { id: 'dashboard', label: 'Home', icon: Sparkles },
-    { id: 'speaking', label: 'Speak', icon: MessageSquare },
+    { id: 'speaking', label: 'Practice', icon: MessageSquare },
+    { id: 'hands-free', label: 'Hands-Free', icon: Headphones },
     { id: 'vocabulary', label: 'Vocab', icon: BookOpen },
     { id: 'analytics', label: 'Progress', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings, isAction: true },
   ];
 
   return (
@@ -29,13 +29,7 @@ export const MobileTabBar: React.FC<SidebarProps> = ({
         return (
           <button
             key={tab.id}
-            onClick={() => {
-              if (tab.isAction) {
-                onOpenSettings();
-              } else {
-                setActiveTab(tab.id);
-              }
-            }}
+            onClick={() => setActiveTab(tab.id)}
             className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
               isActive
                 ? 'text-indigo-400 bg-indigo-500/10 font-bold'

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, LogIn, Loader2 } from 'lucide-react';
+import { User, Mail, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { UserProfile } from '../../types';
 import { api } from '../../services/api';
@@ -8,6 +8,7 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (user: UserProfile) => void;
+  onLogout?: () => void;
   currentUser: UserProfile | null;
 }
 
@@ -15,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  onLogout,
   currentUser,
 }) => {
   const [name, setName] = useState<string>(currentUser?.name || '');
@@ -55,6 +57,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const handleLogoutClick = () => {
+    localStorage.removeItem('speakwise_user_id');
+    localStorage.removeItem('speakwise_user_email');
+    localStorage.removeItem('speakwise_user_name');
+    if (onLogout) {
+      onLogout();
+    }
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -68,10 +80,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold text-white">
-            {currentUser?.email ? 'Manage Your Account' : 'Connect Your Progress'}
+            {currentUser?.email ? `Signed in as ${currentUser.name}` : 'Connect Your Progress'}
           </h3>
           <p className="text-xs text-slate-400">
-            Your conversations, mistakes, and vocabulary flashcards are synced securely to the cloud.
+            {currentUser?.email
+              ? 'You will remain securely signed in on this device until you choose to log out.'
+              : 'Your conversations, mistakes, and vocabulary flashcards are synced securely to the cloud.'}
           </p>
         </div>
 
@@ -123,13 +137,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             >
               <option value="Beginner">Beginner (Foundations & Simple Sentences)</option>
               <option value="Intermediate">Intermediate (Conversational English)</option>
-              <option value="Advanced">Advanced (Workplace & Fluency Polish)</option>
+              <option value="Advanced">Advanced (Workplace & Executive Fluency)</option>
             </select>
           </div>
         </div>
 
-        {/* Submit CTA */}
-        <div className="pt-2">
+        {/* Submit CTA & Logout Actions */}
+        <div className="space-y-2 pt-2">
           <button
             type="submit"
             disabled={isLoading}
@@ -138,15 +152,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Connecting...</span>
+                <span>Saving...</span>
               </>
             ) : (
               <>
                 <LogIn className="w-4 h-4" />
-                <span>{currentUser?.email ? 'Update & Sync Account' : 'Sign In / Connect Account'}</span>
+                <span>{currentUser?.email ? 'Update Profile' : 'Sign In / Connect Account'}</span>
               </>
             )}
           </button>
+
+          {currentUser?.email && (
+            <button
+              type="button"
+              onClick={handleLogoutClick}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 text-xs font-bold transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out of this Account</span>
+            </button>
+          )}
         </div>
       </form>
     </Modal>

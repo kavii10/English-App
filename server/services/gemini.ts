@@ -994,3 +994,253 @@ function generateFallbackAnalysis(
     encouragement: 'Great effort speaking your thoughts clearly!',
   };
 }
+
+/**
+ * Ultra-fast conversational reply generator for Hands-Free Friend mode
+ */
+export async function generateHandsFreeFriendReply(params: {
+  topic: string;
+  dialogue: Array<{ speaker: 'user' | 'ai'; text: string }>;
+  difficulty?: string;
+}): Promise<string> {
+  const { topic, dialogue, difficulty = 'Intermediate' } = params;
+  const model = getModel();
+
+  if (!model || dialogue.length === 0) {
+    return "That's really interesting! Tell me more about why you feel that way.";
+  }
+
+  const lastUserTurn = dialogue[dialogue.length - 1]?.text || '';
+  const historyText = dialogue
+    .map((d) => `${d.speaker === 'user' ? 'User' : 'AI Friend'}: "${d.text}"`)
+    .join('\n');
+
+  const prompt = `
+You are SpeakWise AI acting as a smart, warm, encouraging English conversational partner and Founder Mentor.
+You are in a continuous hands-free voice call with the user.
+
+Conversation Topic: ${topic}
+Target English Level: ${difficulty}
+
+Dialogue History So Far:
+${historyText}
+
+CRITICAL RULES FOR VOICE CONVERSATION:
+1. Speak in 1 to 2 short, natural, conversational sentences (maximum 35 words).
+2. React genuinely to what the user just said (validate, ask an insightful follow-up, or share a perspective).
+3. Do NOT lecture, do NOT list bullet points, and do NOT correct grammar during the conversation.
+4. Keep the energy engaging so the user wants to reply immediately.
+5. Return ONLY the spoken response text with NO quotes or stage directions.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const reply = result.response.text().trim().replace(/^["']|["']$/g, '');
+    return reply || "I see what you mean! How did that experience impact your goals?";
+  } catch (error) {
+    console.error('Error generating hands-free reply:', error);
+    return "That makes a lot of sense. What do you think is the next big step?";
+  }
+}
+
+export interface HandsFreeMasterDiagnostic {
+  topic: string;
+  durationSeconds: number;
+  totalTurns: number;
+  totalUserWords: number;
+  overallScore: number;
+  scores: {
+    grammar: number;
+    vocabulary: number;
+    fluency: number;
+    naturalness: number;
+    executive_presence: number;
+  };
+  allGrammarErrors: Array<{
+    category: string;
+    mistake: string;
+    correction: string;
+    explanation: string;
+    userQuote: string;
+  }>;
+  fillerAnalysis: {
+    totalCount: number;
+    fillers: Array<{ word: string; count: number }>;
+    advice: string;
+  };
+  founderPowerWordsUsed: string[];
+  sayItBetterUpgrades: Array<{
+    original: string;
+    corrected: string;
+    natural: string;
+    advanced: string;
+    explanation: string;
+  }>;
+  strengths: string[];
+  improvements: string[];
+  tomorrowsFocus: string;
+  encouragement: string;
+}
+
+/**
+ * Comprehensive Master Diagnostic after a Hands-Free conversation completes
+ */
+export async function analyzeEntireHandsFreeSession(params: {
+  topic: string;
+  dialogue: Array<{ speaker: 'user' | 'ai'; text: string }>;
+  durationSeconds: number;
+  userId: string;
+}): Promise<HandsFreeMasterDiagnostic> {
+  const { topic, dialogue, durationSeconds, userId } = params;
+  const userTurns = dialogue.filter((d) => d.speaker === 'user');
+  const userFullTranscript = userTurns.map((u) => u.text).join(' ');
+
+  const fillerStats = detectFillerWords(userFullTranscript);
+  const totalUserWords = userFullTranscript.split(/\s+/).filter(Boolean).length;
+  const powerWordsUsed = Array.from(new Set(FOUNDER_POWER_WORDS.filter((w) => userFullTranscript.toLowerCase().includes(w.toLowerCase()))));
+
+  const model = getModel();
+
+  if (!model || userTurns.length === 0) {
+    return {
+      topic,
+      durationSeconds,
+      totalTurns: userTurns.length,
+      totalUserWords,
+      overallScore: 78,
+      scores: { grammar: 80, vocabulary: 75, fluency: 78, naturalness: 76, executive_presence: 75 },
+      allGrammarErrors: [],
+      fillerAnalysis: { totalCount: fillerStats.total_count, fillers: fillerStats.items, advice: fillerStats.advice },
+      founderPowerWordsUsed: powerWordsUsed,
+      sayItBetterUpgrades: [],
+      strengths: ['Spoke naturally in a continuous conversational flow.', 'Maintained active dialogue across multiple turns.'],
+      improvements: ['Reduce filler words by pausing before complex ideas.'],
+      tomorrowsFocus: 'Focus on fluid sentence transitions and consistent verb tenses.',
+      encouragement: 'Great job completing your hands-free English conversation!',
+    };
+  }
+
+  const prompt = `
+You are the Chief Linguistic Analyst for SpeakWise AI.
+The user just completed a continuous hands-free spoken English session with an AI voice partner.
+Analyze the ENTIRE multi-turn conversation and provide a comprehensive Master Diagnostic.
+
+Session Topic: ${topic}
+Session Duration: ${durationSeconds} seconds
+Full Dialogue Transcript:
+${dialogue.map((d) => `[${d.speaker.toUpperCase()}]: ${d.text}`).join('\n')}
+
+DIAGNOSTIC REQUIREMENTS:
+1. Identify all genuine grammar mistakes made by the USER across the entire conversation with clear educational explanations.
+2. Provide 2-3 "Say It Better" upgrades for key sentences spoken by the user (Corrected, Natural Native, and Polished Executive/Advanced).
+3. Score each dimension objectively between 45 and 100.
+4. Highlight 2 key strengths and 2 actionable improvement areas.
+5. Provide a personalized "Tomorrow's Focus" recommendation.
+
+Return STRICT JSON matching this schema:
+{
+  "overallScore": number,
+  "scores": {
+    "grammar": number,
+    "vocabulary": number,
+    "fluency": number,
+    "naturalness": number,
+    "executive_presence": number
+  },
+  "allGrammarErrors": [
+    {
+      "category": "Verb Tense | Prepositions | Articles | Subject-Verb Agreement | Word Order | Plural/Singular | Pronouns | Modals | General",
+      "mistake": "exact mistake snippet",
+      "correction": "corrected snippet",
+      "explanation": "clear educational reason",
+      "userQuote": "the user's sentence containing the mistake"
+    }
+  ],
+  "sayItBetterUpgrades": [
+    {
+      "original": "user sentence",
+      "corrected": "grammatically corrected",
+      "natural": "conversational natural native version",
+      "advanced": "polished CEO / executive version",
+      "explanation": "why this sounds better"
+    }
+  ],
+  "strengths": ["strength 1", "strength 2"],
+  "improvements": ["improvement 1", "improvement 2"],
+  "tomorrowsFocus": "Specific actionable focus for tomorrow's practice",
+  "encouragement": "Empowering feedback for the user's progress"
+}
+`;
+
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+
+    const parsed = JSON.parse(result.response.text());
+
+    // Record mistakes into user_mistakes for long-term weakness tracking
+    if (Array.isArray(parsed.allGrammarErrors)) {
+      for (const err of parsed.allGrammarErrors) {
+        if (err.category && err.mistake && err.correction) {
+          recordUserMistake(userId, err.category, err.mistake, err.correction, err.explanation || '');
+        }
+      }
+    }
+
+    const gScore = Number(parsed.scores?.grammar) || (parsed.allGrammarErrors?.length === 0 ? 92 : 75);
+    const vScore = Number(parsed.scores?.vocabulary) || (powerWordsUsed.length > 0 ? 88 : 78);
+    const fScore = Math.max(45, (Number(parsed.scores?.fluency) || 82) - (fillerStats.total_count * 2));
+    const nScore = Number(parsed.scores?.naturalness) || 80;
+    const eScore = Number(parsed.scores?.executive_presence) || (powerWordsUsed.length > 1 ? 85 : 75);
+
+    const overallScore = Math.round((gScore * 0.25) + (vScore * 0.2) + (fScore * 0.2) + (nScore * 0.2) + (eScore * 0.15));
+
+    return {
+      topic,
+      durationSeconds,
+      totalTurns: userTurns.length,
+      totalUserWords,
+      overallScore: parsed.overallScore || overallScore,
+      scores: {
+        grammar: gScore,
+        vocabulary: vScore,
+        fluency: fScore,
+        naturalness: nScore,
+        executive_presence: eScore,
+      },
+      allGrammarErrors: parsed.allGrammarErrors || [],
+      fillerAnalysis: {
+        totalCount: fillerStats.total_count,
+        fillers: fillerStats.items,
+        advice: fillerStats.advice,
+      },
+      founderPowerWordsUsed: powerWordsUsed,
+      sayItBetterUpgrades: parsed.sayItBetterUpgrades || [],
+      strengths: parsed.strengths || ['Maintained continuous conversational flow.'],
+      improvements: parsed.improvements || ['Practice using more diverse descriptive vocabulary.'],
+      tomorrowsFocus: parsed.tomorrowsFocus || 'Daily conversational flow with targeted grammar precision.',
+      encouragement: parsed.encouragement || 'Outstanding work! Hands-free conversation builds natural muscle memory fast.',
+    };
+  } catch (error) {
+    console.error('Error analyzing hands-free session with Gemini:', error);
+    return {
+      topic,
+      durationSeconds,
+      totalTurns: userTurns.length,
+      totalUserWords,
+      overallScore: 80,
+      scores: { grammar: 82, vocabulary: 78, fluency: 80, naturalness: 78, executive_presence: 76 },
+      allGrammarErrors: [],
+      fillerAnalysis: { totalCount: fillerStats.total_count, fillers: fillerStats.items, advice: fillerStats.advice },
+      founderPowerWordsUsed: powerWordsUsed,
+      sayItBetterUpgrades: [],
+      strengths: ['Great continuous speaking stamina.'],
+      improvements: ['Incorporate more complex clause connectors.'],
+      tomorrowsFocus: 'Natural phrasing and transition words.',
+      encouragement: 'Great job staying consistent!',
+    };
+  }
+}
+

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Flame, Moon, Sun, Settings, Mic, BookOpen, BarChart3, MessageSquare, User } from 'lucide-react';
+import { Sparkles, Flame, Moon, Sun, Settings, Mic, BookOpen, BarChart3, MessageSquare, Headphones, User } from 'lucide-react';
 import { UserProfile } from '../../types';
 
 interface NavbarProps {
@@ -33,10 +33,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+              <span className="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
                 SpeakWise
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+              <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                 AI Coach
               </span>
             </div>
@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="hidden md:flex items-center gap-1 bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'dashboard'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => setActiveTab('speaking')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'speaking'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -71,8 +71,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('hands-free')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'hands-free'
+                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md shadow-cyan-600/20'
+                : 'text-cyan-400 hover:text-cyan-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            <span>Hands-Free</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('vocabulary')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'vocabulary'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -84,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'analytics'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -97,8 +109,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side stats & actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Speaking Streak */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold shadow-sm">
+          {/* Speaking Streak (Hidden on mobile to keep top alignment compact) */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold shadow-sm">
             <Flame className="w-4 h-4 text-amber-500" />
             <span>{user?.streak ?? 0}d Streak</span>
           </div>
